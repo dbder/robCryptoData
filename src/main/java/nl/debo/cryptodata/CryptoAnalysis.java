@@ -50,6 +50,7 @@ public final class CryptoAnalysis {
         var dateStr = java.time.LocalDate.now().toString();
         var csvPath = Path.of("data" + dateStr + ".csv");
         var odsPath = Path.of("data" + dateStr + ".ods");
+        var xlsxPath = Path.of("data" + dateStr + ".xlsx");
         var header = "symbol,interval,time,close,rsi,stochRsi,k,d";
         if (!Files.exists(csvPath)) {
             Files.writeString(csvPath, header + System.lineSeparator(), java.nio.file.StandardOpenOption.CREATE);
@@ -161,6 +162,7 @@ public final class CryptoAnalysis {
         }
 
         generateOds(odsPath, dateStr, results);
+        XslxPrinter.write(xlsxPath, dateStr, results);
 
     }
 
