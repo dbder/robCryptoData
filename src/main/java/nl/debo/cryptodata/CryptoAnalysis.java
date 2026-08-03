@@ -34,9 +34,9 @@ public final class CryptoAnalysis {
         }
 
         List<String> intervals = List.of(
-//                "1h",
-//                "1d",
-//                "1w",
+                "1h",
+                "1d",
+                "1w",
                 "1M"
         );
 
@@ -105,7 +105,6 @@ public final class CryptoAnalysis {
 
                             continue;
                         }
-                        if (true) continue;
 
                         System.out.printf(
                                 "%s | %s | %s | Close: %.2f | RSI: %.2f | StochRSI: %.4f | K: %.4f | D: %.4f%n",
@@ -125,8 +124,7 @@ public final class CryptoAnalysis {
 
                     Thread.sleep(50);
                 } catch (Exception e) {
-                    System.out.println(symbol);
-//                    System.err.println("Error processing symbol " + symbol + " (" + interval + "): " + e.getMessage());
+                    System.err.println("Error processing symbol " + symbol + " (" + interval + "): " + e.getMessage());
                 }
             }
         }
