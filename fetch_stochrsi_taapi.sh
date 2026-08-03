@@ -7,7 +7,7 @@ OUTPUT_CSV="stochrsi_$(date +%F).csv"
 
 # TAAPI API key (from application.properties)
 SECRET="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjbHVlIjoiNmE2YTU2NzkxZGMzM2EyOTU0YWU2NjE2IiwiaWF0IjoxNzg1MzU0MTI4LCJleHAiOjMzMjg5ODE4MTI4fQ.jgOEGX38Xeol9RVEpZqt61-bilL3ydc31JTMnu0Sekc"
-
+#SECRET="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjbHVlIjoiNmE3MDVhYmQxZGMzM2EyOTU0OTg2MjZjIiwiaWF0IjoxNzg1NzQ4MTU3LCJleHAiOjMzMjkwMjEyMTU3fQ.GvtnPTproNbjlIRapD-JpmNsOj-kLXAiBEwjgYzjCXo"
 
 # Define retry parameters
 RETRIES=3
