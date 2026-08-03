@@ -49,9 +49,7 @@ public final class CryptoAnalysis {
 
         var dateStr = java.time.LocalDate.now().toString();
         var csvPath = Path.of("data" + dateStr + ".csv");
-        var odtPath = Path.of("data" + dateStr + ".odt");
         var odsPath = Path.of("data" + dateStr + ".ods");
-        var odfPath = Path.of("data" + dateStr + ".odf");
         var header = "symbol,interval,time,close,rsi,stochRsi,k,d";
         if (!Files.exists(csvPath)) {
             Files.writeString(csvPath, header + System.lineSeparator(), java.nio.file.StandardOpenOption.CREATE);
@@ -163,9 +161,9 @@ public final class CryptoAnalysis {
         }
 
         // Generate ODT, ODS, and ODF files
-        generateOdt(odtPath, dateStr, results);
+//        generateOdt(odtPath, dateStr, results);
         generateOds(odsPath, dateStr, results);
-        generateOds(odfPath, dateStr, results);
+//        generateOds(odfPath, dateStr, results);
     }
 
     private static void generateOdt(Path odtPath, String dateStr, List<ResultRow> results) {
@@ -377,16 +375,16 @@ public final class CryptoAnalysis {
                     """);
 
             for (var r : results) {
-                contentBuilder.append(String.format("""
+                contentBuilder.append(String.format(java.util.Locale.US, """
                             <table:table-row>
-                              <table:table-cell><text:p>%s</text:p></table:table-cell>
-                              <table:table-cell><text:p>%s</text:p></table:table-cell>
-                              <table:table-cell><text:p>%s</text:p></table:table-cell>
-                              <table:table-cell table:formula="of:%.2f"><text:p>%.2f</text:p></table:table-cell>
-                              <table:table-cell table:formula="of:%.4f"><text:p>%.4f</text:p></table:table-cell>
-                              <table:table-cell table:formula="of:%.4f"><text:p>%.4f</text:p></table:table-cell>
-                              <table:table-cell table:formula="of:%.4f"><text:p>%.4f</text:p></table:table-cell>
-                              <table:table-cell table:formula="of:%.4f"><text:p>%.4f</text:p></table:table-cell>
+                              <table:table-cell office:value-type="string"><text:p>%s</text:p></table:table-cell>
+                              <table:table-cell office:value-type="string"><text:p>%s</text:p></table:table-cell>
+                              <table:table-cell office:value-type="string"><text:p>%s</text:p></table:table-cell>
+                              <table:table-cell office:value-type="float" office:value="%.2f"><text:p>%.2f</text:p></table:table-cell>
+                              <table:table-cell office:value-type="float" office:value="%.4f"><text:p>%.4f</text:p></table:table-cell>
+                              <table:table-cell office:value-type="float" office:value="%.4f"><text:p>%.4f</text:p></table:table-cell>
+                              <table:table-cell office:value-type="float" office:value="%.4f"><text:p>%.4f</text:p></table:table-cell>
+                              <table:table-cell office:value-type="float" office:value="%.4f"><text:p>%.4f</text:p></table:table-cell>
                             </table:table-row>
                         """,
                         escapeXml(r.symbol()),
