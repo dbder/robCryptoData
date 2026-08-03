@@ -175,7 +175,7 @@ public final class XslxPrinter {
                   <cellStyleXfs count="1">
                     <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
                   </cellStyleXfs>
-                  <cellXfs count="10">
+                  <cellXfs count="12">
                     <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
                     <xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
                       <alignment horizontal="center" vertical="center"/>
@@ -188,6 +188,8 @@ public final class XslxPrinter {
                     <xf numFmtId="164" fontId="0" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1"/>
                     <xf numFmtId="165" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>
                     <xf numFmtId="165" fontId="0" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1"/>
+                    <xf numFmtId="165" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" indent="2"/></xf>
+                    <xf numFmtId="165" fontId="0" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" indent="2"/></xf>
                   </cellXfs>
                   <cellStyles count="1">
                     <cellStyle name="Normal" xfId="0" builtinId="0"/>
@@ -256,14 +258,17 @@ public final class XslxPrinter {
             int centerStyle = banded ? 5 : 4;
             int twoDecStyle = banded ? 7 : 6;
             int fourDecStyle = banded ? 9 : 8;
+            // Colour-coded RSI / StochRSI values get a little extra indent so the
+            // highlighted numbers sit slightly inset from the column edge.
+            int fourDecIndentStyle = banded ? 11 : 10;
 
             sb.append(String.format("    <row r=\"%d\">\n", rowNum));
             appendInlineString(sb, cellRef(0, rowNum), textStyle, r.symbol());
             appendInlineString(sb, cellRef(1, rowNum), centerStyle, r.interval());
             appendInlineString(sb, cellRef(2, rowNum), textStyle, r.time());
             appendNumber(sb, cellRef(3, rowNum), twoDecStyle, r.close());
-            appendNumber(sb, cellRef(4, rowNum), fourDecStyle, r.rsi());
-            appendNumber(sb, cellRef(5, rowNum), fourDecStyle, r.stochRsi());
+            appendNumber(sb, cellRef(4, rowNum), fourDecIndentStyle, r.rsi());
+            appendNumber(sb, cellRef(5, rowNum), fourDecIndentStyle, r.stochRsi());
             appendNumber(sb, cellRef(6, rowNum), fourDecStyle, r.k());
             appendNumber(sb, cellRef(7, rowNum), fourDecStyle, r.d());
             sb.append("    </row>\n");
