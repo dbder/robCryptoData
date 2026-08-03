@@ -13,7 +13,7 @@ SECRET="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjbHVlIjoiNmE2YTU2NzkxZGMzM2EyOTU
 RETRIES=3
 DELAY=16
 
-# Function to fetch data with retries
+# Function to fetch notavailablesymbols with retries
 fetch_data_with_retries() {
   local exchange=$1
   local indicator=$2

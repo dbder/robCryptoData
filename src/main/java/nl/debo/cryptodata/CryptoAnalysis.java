@@ -33,80 +33,94 @@ public final class CryptoAnalysis {
             }
         }
 
+        List<String> intervals = List.of("1h", "1d", "1w", "1M");
+
         for (String rawSymbol : symbols) {
             var symbol = rawSymbol.trim();
             if (symbol.isEmpty() || symbol.startsWith("#")) {
                 continue;
             }
 
-            try {
-                var klines = client.getKlines(
-                        symbol,
-                        "1h",
-                        200
-                );
+            for (String interval : intervals) {
+                try {
+                    var klines = client.getKlines(
+                            symbol,
+                            interval,
+                            200
+                    );
 
-                if (klines.size() <= 1) {
-                    continue;
-                }
-
-                // Remove the currently open candle.
-                var closedKlines = klines.subList(
-                        0,
-                        klines.size() - 1
-                );
-
-                var closes = closedKlines.stream()
-                        .map(Kline::close)
-                        .toList();
-
-                var rsi = Indicators.rsi(
-                        closes,
-                        RSI_PERIOD
-                );
-
-                var stochRsi = Indicators.stochasticRsi(
-                        rsi,
-                        STOCH_RSI_PERIOD
-                );
-
-                var k = Indicators.sma(
-                        stochRsi,
-                        K_PERIOD
-                );
-
-                var d = Indicators.sma(
-                        k,
-                        D_PERIOD
-                );
-
-                for (int i = 0; i < closedKlines.size(); i++) {
-
-                    if (Double.isNaN(rsi.get(i))
-                            || Double.isNaN(stochRsi.get(i))
-                            || Double.isNaN(k.get(i))
-                            || Double.isNaN(d.get(i))) {
-
+                    if (klines.size() <= 1) {
                         continue;
                     }
 
-                    System.out.printf(
-                            "%s | %s | Close: %.2f | RSI: %.2f | StochRSI: %.4f | K: %.4f | D: %.4f%n",
-                            symbol,
-                            java.time.Instant.ofEpochMilli(
-                                    closedKlines.get(i).closeTime()
-                            ),
-                            closedKlines.get(i).close(),
-                            rsi.get(i),
-                            stochRsi.get(i),
-                            k.get(i),
-                            d.get(i)
+                    // Remove the currently open candle.
+                    var closedKlines = klines.subList(
+                            0,
+                            klines.size() - 1
                     );
-                }
 
-                Thread.sleep(100);
-            } catch (Exception e) {
-                System.err.println("Error processing symbol " + symbol + ": " + e.getMessage());
+                    var closes = closedKlines.stream()
+                            .map(Kline::close)
+                            .toList();
+
+                    var rsi = Indicators.rsi(
+                            closes,
+                            RSI_PERIOD
+                    );
+
+                    var stochRsi = Indicators.stochasticRsi(
+                            rsi,
+                            STOCH_RSI_PERIOD
+                    );
+
+                    var k = Indicators.sma(
+                            stochRsi,
+                            K_PERIOD
+                    );
+
+                    var d = Indicators.sma(
+                            k,
+                            D_PERIOD
+                    );
+
+                    if (rsi.isEmpty() || stochRsi.isEmpty() || k.isEmpty() || d.isEmpty()) {
+                        continue;
+                    }
+
+                    for (int i = closedKlines.size() - 1; i >= 0; i--) {
+
+                        if (i >= rsi.size() || i >= stochRsi.size() || i >= k.size() || i >= d.size()) {
+                            continue;
+                        }
+
+                        if (Double.isNaN(rsi.get(i))
+                                || Double.isNaN(stochRsi.get(i))
+                                || Double.isNaN(k.get(i))
+                                || Double.isNaN(d.get(i))) {
+
+                            continue;
+                        }
+
+                        System.out.printf(
+                                "%s | %s | %s | Close: %.2f | RSI: %.2f | StochRSI: %.4f | K: %.4f | D: %.4f%n",
+                                symbol,
+                                interval,
+                                java.time.Instant.ofEpochMilli(
+                                        closedKlines.get(i).closeTime()
+                                ),
+                                closedKlines.get(i).close(),
+                                rsi.get(i),
+                                stochRsi.get(i),
+                                k.get(i),
+                                d.get(i)
+                        );
+                        break;
+                    }
+
+                    Thread.sleep(50);
+                } catch (Exception e) {
+                    System.err.println("Error processing symbol " + symbol + " (" + interval + "): " + e.getMessage());
+                }
             }
         }
     }
