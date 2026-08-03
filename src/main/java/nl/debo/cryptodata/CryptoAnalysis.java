@@ -40,6 +40,13 @@ public final class CryptoAnalysis {
                 "1M"
         );
 
+        var dateStr = java.time.LocalDate.now().toString();
+        var csvPath = Path.of("data" + dateStr + ".csv");
+        var header = "symbol,interval,time,close,rsi,stochRsi,k,d";
+        if (!Files.exists(csvPath)) {
+            Files.writeString(csvPath, header + System.lineSeparator(), java.nio.file.StandardOpenOption.CREATE);
+        }
+
         for (String rawSymbol : symbols) {
             var symbol = rawSymbol.trim();
             if (symbol.isEmpty() || symbol.startsWith("#")) {
@@ -106,19 +113,32 @@ public final class CryptoAnalysis {
                             continue;
                         }
 
+                        var timeInst = java.time.Instant.ofEpochMilli(
+                                closedKlines.get(i).closeTime()
+                        );
                         System.out.printf(
                                 "%s | %s | %s | Close: %.2f | RSI: %.2f | StochRSI: %.4f | K: %.4f | D: %.4f%n",
                                 symbol,
                                 interval,
-                                java.time.Instant.ofEpochMilli(
-                                        closedKlines.get(i).closeTime()
-                                ),
+                                timeInst,
                                 closedKlines.get(i).close(),
                                 rsi.get(i),
                                 stochRsi.get(i),
                                 k.get(i),
                                 d.get(i)
                         );
+                        var csvLine = String.format(
+                                "%s,%s,%s,%.2f,%.4f,%.4f,%.4f,%.4f",
+                                symbol,
+                                interval,
+                                timeInst,
+                                closedKlines.get(i).close(),
+                                rsi.get(i),
+                                stochRsi.get(i),
+                                k.get(i),
+                                d.get(i)
+                        );
+                        Files.writeString(csvPath, csvLine + System.lineSeparator(), java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
                         break;
                     }
 
