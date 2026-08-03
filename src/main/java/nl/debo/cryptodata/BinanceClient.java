@@ -9,6 +9,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
+
+import java.util.concurrent.CompletableFuture;
 import java.util.List;
 
 public final class BinanceClient {
@@ -22,17 +24,17 @@ public final class BinanceClient {
     public BinanceClient() {
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
+                .executor(java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor())
                 .build();
 
         this.objectMapper = new ObjectMapper();
     }
 
-    public List<Kline> getKlines(
+    public CompletableFuture<List<Kline>> getKlinesAsync(
             String symbol,
             String interval,
             int limit
-    ) throws IOException, InterruptedException {
-
+    ) {
         var uri = URI.create(
                 BASE_URL
                         + "?symbol=" + symbol
@@ -46,21 +48,22 @@ public final class BinanceClient {
                 .GET()
                 .build();
 
-        var response = httpClient.send(
-                request,
-                HttpResponse.BodyHandlers.ofString()
-        );
-
-        if (response.statusCode() != 200) {
-            throw new IOException(
-                    "Binance API returned HTTP "
-                            + response.statusCode()
-                            + ": "
-                            + response.body()
-            );
-        }
-
-        return parseKlines(response.body());
+        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                .thenApply(response -> {
+                    if (response.statusCode() != 200) {
+                        throw new RuntimeException(
+                                "Binance API returned HTTP "
+                                        + response.statusCode()
+                                        + ": "
+                                        + response.body()
+                        );
+                    }
+                    try {
+                        return parseKlines(response.body());
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
     }
 
     private List<Kline> parseKlines(String json) throws IOException {

@@ -6,6 +6,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -56,109 +59,116 @@ public final class CryptoAnalysis {
             Files.writeString(csvPath, header + System.lineSeparator(), java.nio.file.StandardOpenOption.CREATE);
         }
 
-        List<ResultRow> results = new ArrayList<>();
+        List<ResultRow> results = java.util.Collections.synchronizedList(new ArrayList<>());
 
-        for (String rawSymbol : symbols) {
-            var symbol = rawSymbol.trim();
-            if (symbol.isEmpty() || symbol.startsWith("#")) {
-                continue;
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<CompletableFuture<Void>> futures = symbols.parallelStream()
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty() && !s.startsWith("#"))
+                    .flatMap(symbol -> intervals.stream().map(interval -> {
+                        return client.getKlinesAsync(symbol, interval, 200)
+                                .thenAcceptAsync(klines -> {
+                                    if (klines.size() <= 1) {
+                                        return;
+                                    }
+
+                                    // Remove the currently open candle.
+                                    var closedKlines = klines.subList(
+                                            0,
+                                            klines.size() - 1
+                                    );
+
+                                    var closes = closedKlines.stream()
+                                            .map(Kline::close)
+                                            .toList();
+
+                                    var rsi = Indicators.rsi(
+                                            closes,
+                                            RSI_PERIOD
+                                    );
+
+                                    var stochRsi = Indicators.stochasticRsi(
+                                            rsi,
+                                            STOCH_RSI_PERIOD
+                                    );
+
+                                    var k = Indicators.sma(
+                                            stochRsi,
+                                            K_PERIOD
+                                    );
+
+                                    var d = Indicators.sma(
+                                            k,
+                                            D_PERIOD
+                                    );
+
+                                    if (rsi.isEmpty() || stochRsi.isEmpty() || k.isEmpty() || d.isEmpty()) {
+                                        return;
+                                    }
+
+                                    for (int i = closedKlines.size() - 1; i >= 0; i--) {
+
+                                        if (i >= rsi.size() || i >= stochRsi.size() || i >= k.size() || i >= d.size()) {
+                                            continue;
+                                        }
+
+                                        if (Double.isNaN(rsi.get(i))
+                                                || Double.isNaN(stochRsi.get(i))
+                                                || Double.isNaN(k.get(i))
+                                                || Double.isNaN(d.get(i))) {
+
+                                            continue;
+                                        }
+
+                                        var timeInst = java.time.Instant.ofEpochMilli(
+                                                closedKlines.get(i).closeTime()
+                                        );
+                                        System.out.printf(
+                                                "%s | %s | %s | Close: %.2f | RSI: %.2f | StochRSI: %.4f | K: %.4f | D: %.4f%n",
+                                                symbol,
+                                                interval,
+                                                timeInst,
+                                                closedKlines.get(i).close(),
+                                                rsi.get(i),
+                                                stochRsi.get(i),
+                                                k.get(i),
+                                                d.get(i)
+                                        );
+                                        results.add(new ResultRow(symbol, interval, timeInst.toString(), closedKlines.get(i).close(), rsi.get(i), stochRsi.get(i), k.get(i), d.get(i)));
+                                        break;
+                                    }
+                                }, executor)
+                                .exceptionally(e -> {
+                                    System.err.println("Error processing symbol " + symbol + " (" + interval + "): " + e.getMessage());
+                                    return null;
+                                });
+                    }))
+
+                    .toList();
+
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        }
+
+        // Write results to CSV
+        try (var writer = Files.newBufferedWriter(csvPath, StandardCharsets.UTF_8, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND)) {
+            for (var r : results) {
+                var csvLine = String.format(
+                        java.util.Locale.US,
+                        "%s,%s,%s,%.2f,%.4f,%.4f,%.4f,%.4f",
+                        r.symbol(),
+                        r.interval(),
+                        r.time(),
+                        r.close(),
+                        r.rsi(),
+                        r.stochRsi(),
+                        r.k(),
+                        r.d()
+                );
+                writer.write(csvLine);
+                writer.newLine();
             }
-
-            for (String interval : intervals) {
-                try {
-                    var klines = client.getKlines(
-                            symbol,
-                            interval,
-                            200
-                    );
-
-                    if (klines.size() <= 1) {
-                        continue;
-                    }
-
-                    // Remove the currently open candle.
-                    var closedKlines = klines.subList(
-                            0,
-                            klines.size() - 1
-                    );
-
-                    var closes = closedKlines.stream()
-                            .map(Kline::close)
-                            .toList();
-
-                    var rsi = Indicators.rsi(
-                            closes,
-                            RSI_PERIOD
-                    );
-
-                    var stochRsi = Indicators.stochasticRsi(
-                            rsi,
-                            STOCH_RSI_PERIOD
-                    );
-
-                    var k = Indicators.sma(
-                            stochRsi,
-                            K_PERIOD
-                    );
-
-                    var d = Indicators.sma(
-                            k,
-                            D_PERIOD
-                    );
-
-                    if (rsi.isEmpty() || stochRsi.isEmpty() || k.isEmpty() || d.isEmpty()) {
-                        continue;
-                    }
-
-                    for (int i = closedKlines.size() - 1; i >= 0; i--) {
-
-                        if (i >= rsi.size() || i >= stochRsi.size() || i >= k.size() || i >= d.size()) {
-                            continue;
-                        }
-
-                        if (Double.isNaN(rsi.get(i))
-                                || Double.isNaN(stochRsi.get(i))
-                                || Double.isNaN(k.get(i))
-                                || Double.isNaN(d.get(i))) {
-
-                            continue;
-                        }
-
-                        var timeInst = java.time.Instant.ofEpochMilli(
-                                closedKlines.get(i).closeTime()
-                        );
-                        System.out.printf(
-                                "%s | %s | %s | Close: %.2f | RSI: %.2f | StochRSI: %.4f | K: %.4f | D: %.4f%n",
-                                symbol,
-                                interval,
-                                timeInst,
-                                closedKlines.get(i).close(),
-                                rsi.get(i),
-                                stochRsi.get(i),
-                                k.get(i),
-                                d.get(i)
-                        );
-                        var csvLine = String.format(
-                                "%s,%s,%s,%.2f,%.4f,%.4f,%.4f,%.4f",
-                                symbol,
-                                interval,
-                                timeInst,
-                                closedKlines.get(i).close(),
-                                rsi.get(i),
-                                stochRsi.get(i),
-                                k.get(i),
-                                d.get(i)
-                        );
-                        Files.writeString(csvPath, csvLine + System.lineSeparator(), java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
-                        results.add(new ResultRow(symbol, interval, timeInst.toString(), closedKlines.get(i).close(), rsi.get(i), stochRsi.get(i), k.get(i), d.get(i)));
-                        break;
-                    }
-
-                    Thread.sleep(50);
-                } catch (Exception e) {
-                    System.err.println("Error processing symbol " + symbol + " (" + interval + "): " + e.getMessage());
-                }
-            }
+        } catch (IOException e) {
+            System.err.println("Error writing to CSV: " + e.getMessage());
         }
 
         generateOds(odsPath, dateStr, results);
