@@ -379,17 +379,17 @@ public final class CryptoAnalysis {
                             <table:table-row>
                               <table:table-cell office:value-type="string"><text:p>%s</text:p></table:table-cell>
                               <table:table-cell office:value-type="string"><text:p>%s</text:p></table:table-cell>
-                              <table:table-cell office:value-type="string"><text:p>%s</text:p></table:table-cell>
-                              <table:table-cell office:value-type="float" office:value="%.2f"><text:p>%.2f</text:p></table:table-cell>
-                              <table:table-cell office:value-type="float" office:value="%.4f"><text:p>%.4f</text:p></table:table-cell>
-                              <table:table-cell office:value-type="float" office:value="%.4f"><text:p>%.4f</text:p></table:table-cell>
-                              <table:table-cell office:value-type="float" office:value="%.4f"><text:p>%.4f</text:p></table:table-cell>
-                              <table:table-cell office:value-type="float" office:value="%.4f"><text:p>%.4f</text:p></table:table-cell>
+                              <table:table-cell office:value-type="date" office:date-value="%s"><text:p>%s</text:p></table:table-cell>
+                              <table:table-cell office:value-type="float" office:value="%f"><text:p>%.2f</text:p></table:table-cell>
+                              <table:table-cell office:value-type="float" office:value="%f"><text:p>%.4f</text:p></table:table-cell>
+                              <table:table-cell office:value-type="float" office:value="%f"><text:p>%.4f</text:p></table:table-cell>
+                              <table:table-cell office:value-type="float" office:value="%f"><text:p>%.4f</text:p></table:table-cell>
+                              <table:table-cell office:value-type="float" office:value="%f"><text:p>%.4f</text:p></table:table-cell>
                             </table:table-row>
                         """,
                         escapeXml(r.symbol()),
                         escapeXml(r.interval()),
-                        escapeXml(r.time()),
+                        escapeXml(r.time()), escapeXml(r.time()),
                         r.close(), r.close(),
                         r.rsi(), r.rsi(),
                         r.stochRsi(), r.stochRsi(),
