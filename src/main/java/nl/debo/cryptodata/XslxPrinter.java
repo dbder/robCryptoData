@@ -1,5 +1,7 @@
 package nl.debo.cryptodata;
 
+import nl.debo.cryptodata.utils.XmlUtil;
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -244,7 +246,7 @@ public final class XslxPrinter {
             String ref = cellRef(c, 1);
             sb.append(String.format(
                     "      <c r=\"%s\" s=\"1\" t=\"inlineStr\"><is><t>%s</t></is></c>\n",
-                    ref, escapeXml(HEADERS[c])));
+                    ref, XmlUtil.escapeXml(HEADERS[c])));
         }
         sb.append("    </row>\n");
 
@@ -305,7 +307,7 @@ public final class XslxPrinter {
     private static void appendInlineString(StringBuilder sb, String ref, int style, String value) {
         sb.append(String.format(
                 "      <c r=\"%s\" s=\"%d\" t=\"inlineStr\"><is><t>%s</t></is></c>\n",
-                ref, style, escapeXml(value)));
+                ref, style, XmlUtil.escapeXml(value)));
     }
 
     private static void appendNumber(StringBuilder sb, String ref, int style, double value) {
@@ -329,12 +331,4 @@ public final class XslxPrinter {
         return sb.toString();
     }
 
-    private static String escapeXml(String str) {
-        if (str == null) return "";
-        return str.replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-                .replace("\"", "&quot;")
-                .replace("'", "&apos;");
-    }
 }

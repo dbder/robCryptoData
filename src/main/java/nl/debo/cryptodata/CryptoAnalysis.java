@@ -1,6 +1,9 @@
 package nl.debo.cryptodata;
 
-import java.io.IOException;
+import nl.debo.cryptodata.utils.CsvUtil;
+import nl.debo.cryptodata.utils.FileUtil;
+import nl.debo.cryptodata.utils.XmlUtil;
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,23 +28,12 @@ public final class CryptoAnalysis {
     public static void main(String[] args) throws Exception {
         var client = new BinanceClient();
 
-        List<String> symbols;
-        Path path = Path.of("src/main/java/nl/debo/cryptodata/symbols");
-        if (!Files.exists(path)) {
-            path = Path.of("symbols");
-        }
-        if (Files.exists(path)) {
-            symbols = Files.readAllLines(path);
-        } else {
-            var resource = CryptoAnalysis.class.getResourceAsStream("symbols");
-            if (resource != null) {
-                try (var reader = new java.io.BufferedReader(new java.io.InputStreamReader(resource, StandardCharsets.UTF_8))) {
-                    symbols = reader.lines().toList();
-                }
-            } else {
-                throw new IOException("Symbols file not found");
-            }
-        }
+        List<String> symbols = FileUtil.readLinesWithFallback(
+                CryptoAnalysis.class,
+                "symbols",
+                Path.of("src/main/java/nl/debo/cryptodata/symbols"),
+                Path.of("symbols")
+        );
 
         List<String> intervals = List.of(
                 "1h",
@@ -54,10 +46,7 @@ public final class CryptoAnalysis {
         var csvPath = Path.of("data" + dateStr + ".csv");
         var odsPath = Path.of("data" + dateStr + ".ods");
         var xlsxPath = Path.of("data" + dateStr + ".xlsx");
-        var header = "symbol,interval,time,close,rsi,stochRsi,k,d";
-        if (!Files.exists(csvPath)) {
-            Files.writeString(csvPath, header + System.lineSeparator(), java.nio.file.StandardOpenOption.CREATE);
-        }
+        CsvUtil.ensureHeader(csvPath);
 
         List<ResultRow> results = java.util.Collections.synchronizedList(new ArrayList<>());
 
@@ -149,27 +138,7 @@ public final class CryptoAnalysis {
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
         }
 
-        // Write results to CSV
-        try (var writer = Files.newBufferedWriter(csvPath, StandardCharsets.UTF_8, java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND)) {
-            for (var r : results) {
-                var csvLine = String.format(
-                        java.util.Locale.US,
-                        "%s,%s,%s,%.2f,%.4f,%.4f,%.4f,%.4f",
-                        r.symbol(),
-                        r.interval(),
-                        r.time(),
-                        r.close(),
-                        r.rsi(),
-                        r.stochRsi(),
-                        r.k(),
-                        r.d()
-                );
-                writer.write(csvLine);
-                writer.newLine();
-            }
-        } catch (IOException e) {
-            System.err.println("Error writing to CSV: " + e.getMessage());
-        }
+        CsvUtil.appendResultRows(csvPath, results);
 
         generateOds(odsPath, dateStr, results);
         XslxPrinter.write(xlsxPath, dateStr, results);
@@ -273,9 +242,9 @@ public final class CryptoAnalysis {
                               <table:table-cell office:value-type="float" office:value="%f"><text:p>%.4f</text:p></table:table-cell>
                             </table:table-row>
                         """,
-                        escapeXml(r.symbol()),
-                        escapeXml(r.interval()),
-                        escapeXml(r.time()), escapeXml(r.time()),
+                        XmlUtil.escapeXml(r.symbol()),
+                        XmlUtil.escapeXml(r.interval()),
+                        XmlUtil.escapeXml(r.time()), XmlUtil.escapeXml(r.time()),
                         r.close(), r.close(),
                         r.rsi(), r.rsi(),
                         r.stochRsi(), r.stochRsi(),
@@ -298,14 +267,5 @@ public final class CryptoAnalysis {
         } catch (Exception e) {
             System.err.println("Error generating ODS/ODF file: " + e.getMessage());
         }
-    }
-
-    private static String escapeXml(String str) {
-        if (str == null) return "";
-        return str.replace("&", "&amp;")
-                  .replace("<", "&lt;")
-                  .replace(">", "&gt;")
-                  .replace("\"", "&quot;")
-                  .replace("'", "&apos;");
     }
 }

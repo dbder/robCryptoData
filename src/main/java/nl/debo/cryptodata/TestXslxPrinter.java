@@ -1,8 +1,9 @@
 package nl.debo.cryptodata;
 
+import nl.debo.cryptodata.utils.CsvUtil;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -32,7 +33,7 @@ public final class TestXslxPrinter {
             return;
         }
 
-        List<CryptoAnalysis.ResultRow> results = readResultRows(csvPath);
+        List<CryptoAnalysis.ResultRow> results = CsvUtil.readResultRows(csvPath);
         System.out.println("Parsed " + results.size() + " rows from " + csvPath);
 
         // Derive the report date and output name from the CSV file name, e.g.
@@ -45,41 +46,5 @@ public final class TestXslxPrinter {
 
         var xlsxPath = csvPath.resolveSibling(base + ".xlsx");
         XslxPrinter.write(xlsxPath, dateStr, results);
-    }
-
-    /**
-     * Parses the CSV into {@link CryptoAnalysis.ResultRow} values. The first line
-     * is treated as a header and skipped; the expected column order is
-     * {@code symbol,interval,time,close,rsi,stochRsi,k,d}.
-     */
-    static List<CryptoAnalysis.ResultRow> readResultRows(Path csvPath) throws Exception {
-        var rows = new ArrayList<CryptoAnalysis.ResultRow>();
-        var lines = Files.readAllLines(csvPath);
-
-        for (int i = 1; i < lines.size(); i++) {
-            String line = lines.get(i).strip();
-            if (line.isEmpty()) {
-                continue;
-            }
-
-            String[] f = line.split(",", -1);
-            if (f.length < 8) {
-                System.err.println("Skipping malformed line " + (i + 1) + ": " + line);
-                continue;
-            }
-
-            rows.add(new CryptoAnalysis.ResultRow(
-                    f[0],
-                    f[1],
-                    f[2],
-                    Double.parseDouble(f[3]),
-                    Double.parseDouble(f[4]),
-                    Double.parseDouble(f[5]),
-                    Double.parseDouble(f[6]),
-                    Double.parseDouble(f[7])
-            ));
-        }
-
-        return rows;
     }
 }
