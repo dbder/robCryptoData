@@ -12,7 +12,7 @@ import java.util.zip.ZipOutputStream;
 
 /**
  * Writes a nicely styled, sortable Microsoft Excel (.xlsx) spreadsheet from a
- * list of {@link CryptoAnalysis.ResultRow} values.
+ * list of {@link ResultRow} values.
  *
  * <p>The file is produced as a raw OOXML (SpreadsheetML) package, so no external
  * libraries are required. The layout focuses on readability:
@@ -44,7 +44,7 @@ public final class XslxPrinter {
      * @param dateStr  report date, used in document metadata
      * @param results  rows to render
      */
-    public static void write(Path xlsxPath, String dateStr, List<CryptoAnalysis.ResultRow> results) {
+    public static void write(Path xlsxPath, String dateStr, List<ResultRow> results) {
         try (var zipOut = new ZipOutputStream(Files.newOutputStream(xlsxPath))) {
             writeEntry(zipOut, "[Content_Types].xml", contentTypesXml());
             writeEntry(zipOut, "_rels/.rels", rootRelsXml());
@@ -208,7 +208,7 @@ public final class XslxPrinter {
                 """;
     }
 
-    private static String sheetXml(List<CryptoAnalysis.ResultRow> results) {
+    private static String sheetXml(List<ResultRow> results) {
         int lastRow = results.size() + 1;
         var sb = new StringBuilder();
         sb.append("""

@@ -1,35 +1,20 @@
 package nl.debo.cryptodata;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.io.IOException;
+import com.fasterxml.jackson.databind.JsonNode;
+import nl.debo.cryptodata.utils.JsonHttp;
+
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
-
-import java.util.concurrent.CompletableFuture;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public final class BitvavoClient {
 
     private static final String BASE_URL =
             "https://api.bitvavo.com/v2";
 
-    private final HttpClient httpClient;
-    private final ObjectMapper objectMapper;
-
-    public BitvavoClient() {
-        this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(10))
-                .executor(java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor())
-                .build();
-
-        this.objectMapper = new ObjectMapper();
-    }
+    private final JsonHttp http = new JsonHttp("Bitvavo API");
 
     public CompletableFuture<List<Kline>> getKlinesAsync(
             String market,
@@ -43,40 +28,15 @@ public final class BitvavoClient {
                         + "&limit=" + limit
         );
 
-        var request = HttpRequest.newBuilder()
-                .uri(uri)
-                .timeout(Duration.ofSeconds(10))
-                .GET()
-                .build();
-
-        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                .thenApply(response -> {
-                    if (response.statusCode() != 200) {
-                        throw new RuntimeException(
-                                "Bitvavo API returned HTTP "
-                                        + response.statusCode()
-                                        + ": "
-                                        + response.body()
-                        );
-                    }
-                    try {
-                        return parseKlines(response.body(), interval);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+        return http.getJson(uri).thenApply(root -> parseKlines(root, interval));
     }
 
-    private List<Kline> parseKlines(String json, String interval) throws IOException {
-
-        JsonNode root = objectMapper.readTree(json);
-
+    private static List<Kline> parseKlines(JsonNode root, String interval) {
         long intervalMillis = intervalMillis(interval);
 
         var result = new ArrayList<Kline>();
 
         for (JsonNode candle : root) {
-
             long openTime = candle.get(0).asLong();
 
             result.add(new Kline(

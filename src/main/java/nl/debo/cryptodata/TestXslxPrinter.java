@@ -11,7 +11,7 @@ import java.util.List;
  *
  * <p>It reads a CSV produced by {@link CryptoAnalysis} (default
  * {@code data2026-08-03.csv}), turns every line into a
- * {@link CryptoAnalysis.ResultRow} and renders the styled workbook, so the
+ * {@link ResultRow} and renders the styled workbook, so the
  * spreadsheet layout can be inspected without hitting the live Binance API.
  *
  * <p>The project has no test framework wired up, so this is a plain
@@ -33,7 +33,7 @@ public final class TestXslxPrinter {
             return;
         }
 
-        List<CryptoAnalysis.ResultRow> results = CsvUtil.readResultRows(csvPath);
+        List<ResultRow> results = CsvUtil.readResultRows(csvPath);
         System.out.println("Parsed " + results.size() + " rows from " + csvPath);
 
         // Derive the report date and output name from the CSV file name, e.g.

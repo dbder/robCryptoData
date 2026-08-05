@@ -1,34 +1,19 @@
 package nl.debo.cryptodata;
+
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import nl.debo.cryptodata.utils.JsonHttp;
 
-import java.io.IOException;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.util.ArrayList;
-
-import java.util.concurrent.CompletableFuture;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public final class BinanceClient {
 
     private static final String BASE_URL =
             "https://api.binance.com/api/v3/klines";
 
-    private final HttpClient httpClient;
-    private final ObjectMapper objectMapper;
-
-    public BinanceClient() {
-        this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(10))
-                .executor(java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor())
-                .build();
-
-        this.objectMapper = new ObjectMapper();
-    }
+    private final JsonHttp http = new JsonHttp("Binance API");
 
     public CompletableFuture<List<Kline>> getKlinesAsync(
             String symbol,
@@ -42,38 +27,13 @@ public final class BinanceClient {
                         + "&limit=" + limit
         );
 
-        var request = HttpRequest.newBuilder()
-                .uri(uri)
-                .timeout(Duration.ofSeconds(10))
-                .GET()
-                .build();
-
-        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                .thenApply(response -> {
-                    if (response.statusCode() != 200) {
-                        throw new RuntimeException(
-                                "Binance API returned HTTP "
-                                        + response.statusCode()
-                                        + ": "
-                                        + response.body()
-                        );
-                    }
-                    try {
-                        return parseKlines(response.body());
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+        return http.getJson(uri).thenApply(BinanceClient::parseKlines);
     }
 
-    private List<Kline> parseKlines(String json) throws IOException {
-
-        JsonNode root = objectMapper.readTree(json);
-
+    private static List<Kline> parseKlines(JsonNode root) {
         var result = new ArrayList<Kline>();
 
         for (JsonNode kline : root) {
-
             result.add(new Kline(
                     kline.get(0).asLong(),    // Open time
                     kline.get(1).asDouble(),  // Open

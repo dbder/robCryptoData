@@ -1,6 +1,7 @@
 package nl.debo.cryptodata.utils;
 
 import nl.debo.cryptodata.CryptoAnalysis;
+import nl.debo.cryptodata.ResultRow;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -34,7 +35,7 @@ public final class CsvUtil {
     /**
      * Appends the given rows to the CSV file.
      */
-    public static void appendResultRows(Path csvPath, List<CryptoAnalysis.ResultRow> results) {
+    public static void appendResultRows(Path csvPath, List<ResultRow> results) {
         try (var writer = Files.newBufferedWriter(csvPath, StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
             for (var r : results) {
@@ -59,11 +60,11 @@ public final class CsvUtil {
     }
 
     /**
-     * Parses the CSV into {@link CryptoAnalysis.ResultRow} values. The first line
+     * Parses the CSV into {@link ResultRow} values. The first line
      * is treated as a header and skipped; malformed lines are reported and skipped.
      */
-    public static List<CryptoAnalysis.ResultRow> readResultRows(Path csvPath) throws IOException {
-        var rows = new ArrayList<CryptoAnalysis.ResultRow>();
+    public static List<ResultRow> readResultRows(Path csvPath) throws IOException {
+        var rows = new ArrayList<ResultRow>();
         var lines = Files.readAllLines(csvPath);
 
         for (int i = 1; i < lines.size(); i++) {
@@ -78,7 +79,7 @@ public final class CsvUtil {
                 continue;
             }
 
-            rows.add(new CryptoAnalysis.ResultRow(
+            rows.add(new ResultRow(
                     f[0],
                     f[1],
                     f[2],
