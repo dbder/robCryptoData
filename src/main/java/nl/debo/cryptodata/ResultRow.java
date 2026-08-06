@@ -12,6 +12,9 @@ public record ResultRow(
         double rsi,
         double stochRsi,
         double k,
-        double d
+        double d,
+        double macd,
+        double macdSignal,
+        double macdHistogram
 ) {
 }

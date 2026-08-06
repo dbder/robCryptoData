@@ -29,12 +29,13 @@ public final class XslxPrinter {
     }
 
     private static final String[] HEADERS = {
-            "Symbol", "Interval", "Time", "Close", "RSI", "StochRSI", "K", "D"
+            "Symbol", "Interval", "Time", "Close", "RSI", "StochRSI", "K", "D",
+            "MACD", "Signal", "Histogram"
     };
 
     // Column widths (in Excel "characters" units).
     private static final double[] COLUMN_WIDTHS = {
-            14, 11, 26, 15, 10, 12, 10, 10
+            14, 11, 26, 15, 10, 12, 10, 10, 12, 12, 12
     };
 
     /**
@@ -268,6 +269,9 @@ public final class XslxPrinter {
             appendNumber(sb, cellRef(5, rowNum), fourDecStyle, r.stochRsi());
             appendNumber(sb, cellRef(6, rowNum), fourDecStyle, r.k());
             appendNumber(sb, cellRef(7, rowNum), fourDecStyle, r.d());
+            appendNumber(sb, cellRef(8, rowNum), fourDecStyle, r.macd());
+            appendNumber(sb, cellRef(9, rowNum), fourDecStyle, r.macdSignal());
+            appendNumber(sb, cellRef(10, rowNum), fourDecStyle, r.macdHistogram());
             sb.append("    </row>\n");
             rowNum++;
         }
@@ -298,6 +302,15 @@ public final class XslxPrinter {
                         <cfRule type="cellIs" dxfId="1" priority="4" operator="lessThanOrEqual"><formula>0.2</formula></cfRule>
                       </conditionalFormatting>
                     """, stochRange));
+
+            // MACD histogram: above zero green (bullish), below zero red (bearish).
+            String histRange = "K2:K" + lastRow;
+            sb.append(String.format("""
+                      <conditionalFormatting sqref="%s">
+                        <cfRule type="cellIs" dxfId="1" priority="5" operator="greaterThan"><formula>0</formula></cfRule>
+                        <cfRule type="cellIs" dxfId="0" priority="6" operator="lessThan"><formula>0</formula></cfRule>
+                      </conditionalFormatting>
+                    """, histRange));
         }
 
         sb.append("</worksheet>\n");

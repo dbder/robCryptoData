@@ -14,8 +14,8 @@ import java.util.concurrent.Executors;
 
 /**
  * Entry point: fetches klines for every symbol/interval combination, computes
- * RSI / Stochastic RSI indicators and writes the results as CSV, ODS and XLSX
- * reports.
+ * RSI / Stochastic RSI / MACD indicators and writes the results as CSV, ODS
+ * and XLSX reports.
  */
 public final class CryptoAnalysis {
 
@@ -23,6 +23,9 @@ public final class CryptoAnalysis {
     private static final int STOCH_RSI_PERIOD = 14;
     private static final int K_PERIOD = 3;
     private static final int D_PERIOD = 3;
+    private static final int MACD_FAST_PERIOD = 12;
+    private static final int MACD_SLOW_PERIOD = 26;
+    private static final int MACD_SIGNAL_PERIOD = 9;
     private static final int KLINE_LIMIT = 200;
 
     private static final List<String> INTERVALS = List.of("1h", "1d", "1w", "1M");
@@ -32,7 +35,8 @@ public final class CryptoAnalysis {
 
     public static void main(String[] args) throws Exception {
         var client = new BinanceClient();
-        var analyzer = new StochRsiAnalyzer(RSI_PERIOD, STOCH_RSI_PERIOD, K_PERIOD, D_PERIOD);
+        var analyzer = new StochRsiAnalyzer(RSI_PERIOD, STOCH_RSI_PERIOD, K_PERIOD, D_PERIOD,
+                MACD_FAST_PERIOD, MACD_SLOW_PERIOD, MACD_SIGNAL_PERIOD);
 
         Path appDir = FileUtil.applicationDir();
         List<String> symbols = FileUtil.readLinesWithFallback(
@@ -79,7 +83,7 @@ public final class CryptoAnalysis {
 
     private static void printRow(ResultRow row) {
         System.out.printf(
-                "%s | %s | %s | Close: %.2f | RSI: %.2f | StochRSI: %.4f | K: %.4f | D: %.4f%n",
+                "%s | %s | %s | Close: %.2f | RSI: %.2f | StochRSI: %.4f | K: %.4f | D: %.4f | MACD: %.4f | Signal: %.4f | Hist: %.4f%n",
                 row.symbol(),
                 row.interval(),
                 row.time(),
@@ -87,7 +91,10 @@ public final class CryptoAnalysis {
                 row.rsi(),
                 row.stochRsi(),
                 row.k(),
-                row.d()
+                row.d(),
+                row.macd(),
+                row.macdSignal(),
+                row.macdHistogram()
         );
     }
 }
