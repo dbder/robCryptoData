@@ -29,7 +29,7 @@ import java.util.concurrent.Executors;
  */
 public final class NewsClient {
 
-    private static final Duration TIMEOUT = Duration.ofSeconds(10);
+    private static final Duration TIMEOUT = Duration.ofSeconds(30);
     private static final String BASE_URL = "https://news.google.com/rss/search";
 
     private final HttpClient httpClient = HttpClient.newBuilder()
