@@ -39,7 +39,7 @@ public final class CryptoAnalysis {
                 CryptoAnalysis.class,
                 "symbols",
                 appDir.resolve("symbols"),
-                Path.of("src/main/java/nl/debo/cryptodata/symbols"),
+                Path.of("src/main/resources/nl/debo/cryptodata/symbols"),
                 Path.of("symbols")
         );
 
