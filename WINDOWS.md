@@ -1,24 +1,34 @@
 # Windows setup
 
-Build and run robCryptoData on a fresh Windows machine.
+Build and run robCryptoData on a fresh Windows machine. Only dependency: JDK 25.
+Maven is bundled via the Maven wrapper (`mvnw.cmd`), no Git needed.
 
-## 1. Install dependencies
+## 1. Install JDK 25
+
+Download and run the installer (accepts all defaults, adds `java` to PATH):
+
+<https://download.oracle.com/java/25/latest/jdk-25_windows-x64_bin.msi>
+
+Or from PowerShell:
 
 ```powershell
-winget install -e --id Git.Git
-winget install -e --id Oracle.JDK.25
-winget install -e --id Apache.Maven
+Invoke-WebRequest https://download.oracle.com/java/25/latest/jdk-25_windows-x64_bin.msi -OutFile jdk25.msi
+Start-Process msiexec -ArgumentList '/i jdk25.msi /qn' -Wait -Verb RunAs
 ```
 
-Open a new PowerShell afterwards so PATH updates take effect.
+Open a new PowerShell afterwards and check with `java -version`.
 
 ## 2. Get the source and build
 
+Download <https://github.com/dbder/robCryptoData/archive/refs/heads/main.zip>,
+extract it, then in PowerShell:
+
 ```powershell
-git clone https://github.com/dbder/robCryptoData.git
-cd robCryptoData
-mvn package
+cd robCryptoData-main
+.\mvnw.cmd package
 ```
+
+(Or `git clone https://github.com/dbder/robCryptoData.git` if Git is available.)
 
 ## 3. Run
 
