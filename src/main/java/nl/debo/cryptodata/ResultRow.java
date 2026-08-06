@@ -15,6 +15,7 @@ public record ResultRow(
         double d,
         double macd,
         double macdSignal,
-        double macdHistogram
+        double macdHistogram,
+        String news
 ) {
 }

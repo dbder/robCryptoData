@@ -30,12 +30,12 @@ public final class XslxPrinter {
 
     private static final String[] HEADERS = {
             "Symbol", "Interval", "Time", "Close", "RSI", "StochRSI", "K", "D",
-            "MACD", "Signal", "Histogram"
+            "MACD", "Signal", "Histogram", "News"
     };
 
     // Column widths (in Excel "characters" units).
     private static final double[] COLUMN_WIDTHS = {
-            14, 11, 26, 15, 10, 12, 10, 10, 12, 12, 12
+            14, 11, 26, 15, 10, 12, 10, 10, 12, 12, 12, 80
     };
 
     /**
@@ -272,6 +272,7 @@ public final class XslxPrinter {
             appendNumber(sb, cellRef(8, rowNum), fourDecStyle, r.macd());
             appendNumber(sb, cellRef(9, rowNum), fourDecStyle, r.macdSignal());
             appendNumber(sb, cellRef(10, rowNum), fourDecStyle, r.macdHistogram());
+            appendInlineString(sb, cellRef(11, rowNum), textStyle, r.news());
             sb.append("    </row>\n");
             rowNum++;
         }

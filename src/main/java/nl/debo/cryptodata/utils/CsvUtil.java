@@ -14,12 +14,16 @@ import java.util.Locale;
 
 /**
  * Reads and writes the
- * {@code symbol,interval,time,close,rsi,stochRsi,k,d,macd,macdSignal,macdHistogram}
- * CSV produced by {@link CryptoAnalysis}.
+ * {@code symbol,interval,time,close,rsi,stochRsi,k,d,macd,macdSignal,macdHistogram,news}
+ * CSV produced by {@link CryptoAnalysis}. The news headline is deliberately
+ * the last column: it may contain commas, so it is parsed with a field limit
+ * instead of quoting.
  */
 public final class CsvUtil {
 
-    public static final String HEADER = "symbol,interval,time,close,rsi,stochRsi,k,d,macd,macdSignal,macdHistogram";
+    public static final String HEADER = "symbol,interval,time,close,rsi,stochRsi,k,d,macd,macdSignal,macdHistogram,news";
+
+    private static final int FIELD_COUNT = 12;
 
     private CsvUtil() {
     }
@@ -42,7 +46,7 @@ public final class CsvUtil {
             for (var r : results) {
                 var csvLine = String.format(
                         Locale.US,
-                        "%s,%s,%s,%.2f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f",
+                        "%s,%s,%s,%.2f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%s",
                         r.symbol(),
                         r.interval(),
                         r.time(),
@@ -53,7 +57,8 @@ public final class CsvUtil {
                         r.d(),
                         r.macd(),
                         r.macdSignal(),
-                        r.macdHistogram()
+                        r.macdHistogram(),
+                        r.news()
                 );
                 writer.write(csvLine);
                 writer.newLine();
@@ -66,8 +71,8 @@ public final class CsvUtil {
     /**
      * Parses the CSV into {@link ResultRow} values. The first line
      * is treated as a header and skipped; malformed lines are reported and skipped.
-     * Older files without the MACD columns are accepted; the missing values
-     * default to zero.
+     * Older files without the MACD / news columns are accepted; missing
+     * numbers default to zero and missing news to an empty string.
      */
     public static List<ResultRow> readResultRows(Path csvPath) throws IOException {
         var rows = new ArrayList<ResultRow>();
@@ -79,7 +84,7 @@ public final class CsvUtil {
                 continue;
             }
 
-            String[] f = line.split(",", -1);
+            String[] f = line.split(",", FIELD_COUNT);
             if (f.length < 8) {
                 System.err.println("Skipping malformed line " + (i + 1) + ": " + line);
                 continue;
@@ -96,7 +101,8 @@ public final class CsvUtil {
                     Double.parseDouble(f[7]),
                     f.length > 8 ? Double.parseDouble(f[8]) : 0.0,
                     f.length > 9 ? Double.parseDouble(f[9]) : 0.0,
-                    f.length > 10 ? Double.parseDouble(f[10]) : 0.0
+                    f.length > 10 ? Double.parseDouble(f[10]) : 0.0,
+                    f.length > 11 ? f[11] : ""
             ));
         }
 

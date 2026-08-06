@@ -34,8 +34,10 @@ public final class StochRsiAnalyzer {
      * Returns the latest complete indicator row for the given klines, or empty
      * if there is not enough data. The last kline is assumed to be the
      * currently open candle and is ignored.
+     *
+     * @param news recent headline for the coin, empty if there is none
      */
-    public Optional<ResultRow> latestRow(String symbol, String interval, List<Kline> klines) {
+    public Optional<ResultRow> latestRow(String symbol, String interval, List<Kline> klines, String news) {
         if (klines.size() <= 1) {
             return Optional.empty();
         }
@@ -84,7 +86,8 @@ public final class StochRsiAnalyzer {
                     d.get(i),
                     macd.get(i),
                     macdSignal.get(i),
-                    macd.get(i) - macdSignal.get(i)
+                    macd.get(i) - macdSignal.get(i),
+                    news
             ));
         }
 

@@ -109,7 +109,7 @@ public final class OdsPrinter {
                   <office:body>
                     <office:spreadsheet>
                       <table:table table:name="CryptoResults">
-                        <table:table-column table:number-columns-repeated="11"/>
+                        <table:table-column table:number-columns-repeated="12"/>
                         <table:table-row>
                           <table:table-cell><text:p>Symbol</text:p></table:table-cell>
                           <table:table-cell><text:p>Interval</text:p></table:table-cell>
@@ -122,6 +122,7 @@ public final class OdsPrinter {
                           <table:table-cell><text:p>MACD</text:p></table:table-cell>
                           <table:table-cell><text:p>Signal</text:p></table:table-cell>
                           <table:table-cell><text:p>Histogram</text:p></table:table-cell>
+                          <table:table-cell><text:p>News</text:p></table:table-cell>
                         </table:table-row>
                 """);
 
@@ -139,6 +140,7 @@ public final class OdsPrinter {
                           <table:table-cell office:value-type="float" office:value="%f"><text:p>%.4f</text:p></table:table-cell>
                           <table:table-cell office:value-type="float" office:value="%f"><text:p>%.4f</text:p></table:table-cell>
                           <table:table-cell office:value-type="float" office:value="%f"><text:p>%.4f</text:p></table:table-cell>
+                          <table:table-cell office:value-type="string"><text:p>%s</text:p></table:table-cell>
                         </table:table-row>
                     """,
                     XmlUtil.escapeXml(r.symbol()),
@@ -151,7 +153,8 @@ public final class OdsPrinter {
                     r.d(), r.d(),
                     r.macd(), r.macd(),
                     r.macdSignal(), r.macdSignal(),
-                    r.macdHistogram(), r.macdHistogram()
+                    r.macdHistogram(), r.macdHistogram(),
+                    XmlUtil.escapeXml(r.news())
             ));
         }
 

@@ -4,18 +4,21 @@ import nl.debo.cryptodata.utils.CsvUtil;
 import nl.debo.cryptodata.utils.FileUtil;
 
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 /**
  * Entry point: fetches klines for every symbol/interval combination, computes
- * RSI / Stochastic RSI / MACD indicators and writes the results as CSV, ODS
- * and XLSX reports.
+ * RSI / Stochastic RSI / MACD indicators, looks up recent market news per
+ * coin and writes the results as CSV, ODS and XLSX reports.
  */
 public final class CryptoAnalysis {
 
@@ -27,6 +30,13 @@ public final class CryptoAnalysis {
     private static final int MACD_SLOW_PERIOD = 26;
     private static final int MACD_SIGNAL_PERIOD = 9;
     private static final int KLINE_LIMIT = 200;
+
+    /** News older than this is not considered "recent" and is left out. */
+    private static final Duration NEWS_MAX_AGE = Duration.ofHours(48);
+
+    /** Quote assets stripped from a pair symbol to get the base coin. */
+    private static final List<String> QUOTE_ASSETS =
+            List.of("USDT", "USDC", "BUSD", "EUR", "USD", "BTC", "ETH", "BNB");
 
     private static final List<String> INTERVALS = List.of("1h", "1d", "1w", "1M");
 
@@ -53,16 +63,26 @@ public final class CryptoAnalysis {
         var xlsxPath = appDir.resolve("data" + dateStr + ".xlsx");
         CsvUtil.ensureHeader(csvPath);
 
+        List<String> activeSymbols = symbols.stream()
+                .map(String::trim)
+                .filter(s -> !s.isEmpty() && !s.startsWith("#"))
+                .toList();
+
+        // One news lookup per base coin, shared by all interval rows.
+        var newsClient = new NewsClient();
+        Map<String, String> newsByCoin = newsClient.fetchLatestHeadlines(
+                activeSymbols.stream().map(CryptoAnalysis::baseAsset).collect(Collectors.toSet()),
+                NEWS_MAX_AGE);
+
         List<ResultRow> results = Collections.synchronizedList(new ArrayList<>());
 
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            List<CompletableFuture<Void>> futures = symbols.parallelStream()
-                    .map(String::trim)
-                    .filter(s -> !s.isEmpty() && !s.startsWith("#"))
+            List<CompletableFuture<Void>> futures = activeSymbols.parallelStream()
                     .flatMap(symbol -> INTERVALS.stream().map(interval ->
                             client.getKlinesAsync(symbol, interval, KLINE_LIMIT)
                                     .thenAcceptAsync(klines ->
-                                            analyzer.latestRow(symbol, interval, klines)
+                                            analyzer.latestRow(symbol, interval, klines,
+                                                            newsByCoin.getOrDefault(baseAsset(symbol), ""))
                                                     .ifPresent(row -> {
                                                         printRow(row);
                                                         results.add(row);
@@ -81,9 +101,23 @@ public final class CryptoAnalysis {
         XslxPrinter.write(xlsxPath, dateStr, results);
     }
 
+    /**
+     * Strips a known quote asset suffix from a pair symbol, e.g.
+     * {@code "SOLEUR" -> "SOL"}. Returns the symbol unchanged if no known
+     * quote asset matches.
+     */
+    private static String baseAsset(String symbol) {
+        for (var quote : QUOTE_ASSETS) {
+            if (symbol.length() > quote.length() && symbol.endsWith(quote)) {
+                return symbol.substring(0, symbol.length() - quote.length());
+            }
+        }
+        return symbol;
+    }
+
     private static void printRow(ResultRow row) {
         System.out.printf(
-                "%s | %s | %s | Close: %.2f | RSI: %.2f | StochRSI: %.4f | K: %.4f | D: %.4f | MACD: %.4f | Signal: %.4f | Hist: %.4f%n",
+                "%s | %s | %s | Close: %.2f | RSI: %.2f | StochRSI: %.4f | K: %.4f | D: %.4f | MACD: %.4f | Signal: %.4f | Hist: %.4f%s%n",
                 row.symbol(),
                 row.interval(),
                 row.time(),
@@ -94,7 +128,8 @@ public final class CryptoAnalysis {
                 row.d(),
                 row.macd(),
                 row.macdSignal(),
-                row.macdHistogram()
+                row.macdHistogram(),
+                row.news().isEmpty() ? "" : " | News: " + row.news()
         );
     }
 }
