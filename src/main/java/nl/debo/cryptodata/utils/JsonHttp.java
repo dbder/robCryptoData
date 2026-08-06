@@ -14,12 +14,12 @@ import java.util.concurrent.Executors;
 
 /**
  * Small async HTTP-to-JSON helper shared by the exchange clients: virtual
- * thread executor, 10 second timeouts, non-200 responses turned into failed
+ * thread executor, 30 second timeouts, non-200 responses turned into failed
  * futures.
  */
 public final class JsonHttp {
 
-    private static final Duration TIMEOUT = Duration.ofSeconds(10);
+    private static final Duration TIMEOUT = Duration.ofSeconds(30);
 
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
