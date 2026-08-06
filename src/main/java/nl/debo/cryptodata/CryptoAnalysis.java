@@ -34,17 +34,19 @@ public final class CryptoAnalysis {
         var client = new BinanceClient();
         var analyzer = new StochRsiAnalyzer(RSI_PERIOD, STOCH_RSI_PERIOD, K_PERIOD, D_PERIOD);
 
+        Path appDir = FileUtil.applicationDir();
         List<String> symbols = FileUtil.readLinesWithFallback(
                 CryptoAnalysis.class,
                 "symbols",
+                appDir.resolve("symbols"),
                 Path.of("src/main/java/nl/debo/cryptodata/symbols"),
                 Path.of("symbols")
         );
 
         var dateStr = LocalDate.now().toString();
-        var csvPath = Path.of("data" + dateStr + ".csv");
-        var odsPath = Path.of("data" + dateStr + ".ods");
-        var xlsxPath = Path.of("data" + dateStr + ".xlsx");
+        var csvPath = appDir.resolve("data" + dateStr + ".csv");
+        var odsPath = appDir.resolve("data" + dateStr + ".ods");
+        var xlsxPath = appDir.resolve("data" + dateStr + ".xlsx");
         CsvUtil.ensureHeader(csvPath);
 
         List<ResultRow> results = Collections.synchronizedList(new ArrayList<>());

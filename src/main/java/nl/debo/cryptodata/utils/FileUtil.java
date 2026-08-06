@@ -17,6 +17,24 @@ public final class FileUtil {
     }
 
     /**
+     * Directory to resolve input/output files against: the directory containing
+     * the native executable when running as a GraalVM native image, otherwise
+     * the current working directory (JVM runs, IDE, {@code mvn exec}).
+     */
+    public static Path applicationDir() {
+        if (System.getProperty("org.graalvm.nativeimage.imagecode") != null) {
+            var command = ProcessHandle.current().info().command();
+            if (command.isPresent()) {
+                Path parent = Path.of(command.get()).toAbsolutePath().getParent();
+                if (parent != null) {
+                    return parent;
+                }
+            }
+        }
+        return Path.of("").toAbsolutePath();
+    }
+
+    /**
      * Reads all lines from the first existing path in {@code candidates}. If none
      * exists, falls back to a classpath resource named {@code resourceName}
      * resolved against {@code resourceOwner}.
