@@ -2,6 +2,13 @@
 
 Hier houden we bij wat er verandert in het project.
 
+## [3] - 2026-08-07
+
+### Nieuw
+- Nieuw startpunt `PredictionBacktest` dat op de bewaarde dagcandles test hoe goed de richting van de volgende dag te voorspellen is. Per munt wordt een logistische-regressiemodel walk-forward geëvalueerd (trainen op het verleden, voorspellen op de eerstvolgende ongeziene candle) en vergeleken met twee basislijnen: "altijd omhoog" en "zelfde richting als gisteren". Resultaten komen in de console en in `output/predictions_<datum>.csv`. Gewoon vanuit IntelliJ starten.
+- Nieuw package `nl.debo.cryptodata.predict` met losse, verwisselbare bouwstenen: features (`IndicatorFeatures`), doelvariabele (`NextDayDirectionLabeler`), modellen (`LogisticRegression` en de basislijnen achter één `Predictor`-interface) en de evaluatielus (`WalkForwardBacktest`).
+- `KlineCsvStore.readKlines` leest de candlestick-CSV's weer in (de tegenhanger van het schrijven).
+
 ## [2] - 2026-08-07
 
 ### Nieuw

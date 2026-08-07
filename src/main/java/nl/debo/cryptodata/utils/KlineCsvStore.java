@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -87,6 +88,41 @@ public final class KlineCsvStore {
             System.err.println("Error reading " + csvPath + ": " + e.getMessage());
             return -1;
         }
+    }
+
+    /**
+     * Parses a candlestick CSV written by this store back into klines, in
+     * file (chronological) order. The header line is skipped; malformed
+     * lines are reported and skipped.
+     */
+    public static List<Kline> readKlines(Path csvPath) throws IOException {
+        var lines = Files.readAllLines(csvPath);
+        var result = new ArrayList<Kline>();
+        for (int i = 1; i < lines.size(); i++) {
+            String line = lines.get(i).strip();
+            if (line.isEmpty()) {
+                continue;
+            }
+            String[] f = line.split(",");
+            if (f.length < 7) {
+                System.err.println("Skipping malformed line " + (i + 1) + " in " + csvPath + ": " + line);
+                continue;
+            }
+            try {
+                result.add(new Kline(
+                        Long.parseLong(f[0]),
+                        Double.parseDouble(f[1]),
+                        Double.parseDouble(f[2]),
+                        Double.parseDouble(f[3]),
+                        Double.parseDouble(f[4]),
+                        Double.parseDouble(f[5]),
+                        Long.parseLong(f[6])
+                ));
+            } catch (NumberFormatException e) {
+                System.err.println("Skipping malformed line " + (i + 1) + " in " + csvPath + ": " + line);
+            }
+        }
+        return result;
     }
 
     private static String toCsvLine(Kline k) {
