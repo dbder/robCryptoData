@@ -1,4 +1,4 @@
-package nl.debo.cryptodata;
+package nl.debo.cryptodata.tools;
 
 /**
  * One line of the report: the latest complete indicator values for a

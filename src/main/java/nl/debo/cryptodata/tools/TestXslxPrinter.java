@@ -1,5 +1,6 @@
-package nl.debo.cryptodata;
+package nl.debo.cryptodata.tools;
 
+import nl.debo.cryptodata.CryptoAnalysis;
 import nl.debo.cryptodata.utils.CsvUtil;
 
 import java.nio.file.Files;
@@ -17,7 +18,7 @@ import java.util.List;
  * <p>The project has no test framework wired up, so this is a plain
  * {@code main} you can launch directly:
  * <pre>{@code
- *   java -cp target/classes nl.debo.cryptodata.TestXslxPrinter [input.csv]
+ *   java -cp target/classes nl.debo.cryptodata.tools.TestXslxPrinter [input.csv]
  * }</pre>
  */
 public final class TestXslxPrinter {

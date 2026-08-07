@@ -1,7 +1,7 @@
 package nl.debo.cryptodata.utils;
 
 import nl.debo.cryptodata.CryptoAnalysis;
-import nl.debo.cryptodata.ResultRow;
+import nl.debo.cryptodata.tools.ResultRow;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

@@ -1,4 +1,4 @@
-package nl.debo.cryptodata;
+package nl.debo.cryptodata.tools;
 
 import org.w3c.dom.Document;
 

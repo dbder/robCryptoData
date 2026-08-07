@@ -1,4 +1,4 @@
-package nl.debo.cryptodata;
+package nl.debo.cryptodata.tools;
 public record Kline(
         long openTime,
         double open,

@@ -1,4 +1,4 @@
-package nl.debo.cryptodata;
+package nl.debo.cryptodata.tools;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import nl.debo.cryptodata.utils.JsonHttp;
