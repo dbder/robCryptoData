@@ -18,9 +18,14 @@ public final class IndicatorAnalyzer {
     private final int macdFastPeriod;
     private final int macdSlowPeriod;
     private final int macdSignalPeriod;
+    private final int madrSmaPeriod;
+    private final SignalNormalizer madrNormalizer;
+    private final SignalNormalizer macdNormalizer;
 
     public IndicatorAnalyzer(int rsiPeriod, int stochRsiPeriod, int kPeriod, int dPeriod,
-                             int macdFastPeriod, int macdSlowPeriod, int macdSignalPeriod) {
+                             int macdFastPeriod, int macdSlowPeriod, int macdSignalPeriod,
+                             int madrSmaPeriod, SignalNormalizer madrNormalizer,
+                             SignalNormalizer macdNormalizer) {
         this.rsiPeriod = rsiPeriod;
         this.stochRsiPeriod = stochRsiPeriod;
         this.kPeriod = kPeriod;
@@ -28,6 +33,9 @@ public final class IndicatorAnalyzer {
         this.macdFastPeriod = macdFastPeriod;
         this.macdSlowPeriod = macdSlowPeriod;
         this.macdSignalPeriod = macdSignalPeriod;
+        this.madrSmaPeriod = madrSmaPeriod;
+        this.madrNormalizer = madrNormalizer;
+        this.macdNormalizer = macdNormalizer;
     }
 
     /**
@@ -54,6 +62,9 @@ public final class IndicatorAnalyzer {
         var d = Indicators.sma(k, dPeriod);
         var macd = Indicators.macdLine(closes, macdFastPeriod, macdSlowPeriod);
         var macdSignal = Indicators.ema(macd, macdSignalPeriod);
+        var madr = madrNormalizer.normalize(Indicators.maDistanceRatio(closes, madrSmaPeriod));
+        var macdStat = macdNormalizer.normalize(
+                Indicators.scaledMacdHistogram(macd, macdSignal, closes));
 
         if (rsi.isEmpty() || stochRsi.isEmpty() || k.isEmpty() || d.isEmpty()) {
             return Optional.empty();
@@ -74,6 +85,18 @@ public final class IndicatorAnalyzer {
             }
 
             var time = Instant.ofEpochMilli(closedKlines.get(i).closeTime());
+
+            // The normalized stats need a long warmup (indicator window plus
+            // normalizer window); on sparse series (e.g. 1M candles of a
+            // young coin) they may still be NaN where everything else is
+            // complete. Fall back to the neutral 0.5 instead of dropping the
+            // whole row.
+            double madrValue = Double.isNaN(madr.get(i)) ? 0.5 : madr.get(i);
+
+            // MACD is a momentum signal: a positive histogram is bullish, so
+            // flip the normalization to keep 0 = buy, 1 = sell.
+            double macdStatValue = Double.isNaN(macdStat.get(i)) ? 0.5 : 1.0 - macdStat.get(i);
+
             return Optional.of(new ResultRow(
                     symbol,
                     interval,
@@ -86,6 +109,8 @@ public final class IndicatorAnalyzer {
                     macd.get(i),
                     macdSignal.get(i),
                     macd.get(i) - macdSignal.get(i),
+                    madrValue,
+                    macdStatValue,
                     ""
             ));
         }

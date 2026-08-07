@@ -31,12 +31,13 @@ public final class XslxPrinter {
     private static final String[] HEADERS = {
             "Symbol", "Interval", "Time", "Close",
             "RSI", "RSI Range", "StochRSI", "StochRSI Range", "K", "K Range", "D", "D Range",
-            "MACD", "MACD Range", "Signal", "Signal Range", "Histogram", "Hist Range", "News"
+            "MACD", "MACD Range", "Signal", "Signal Range", "Histogram", "Hist Range",
+            "MADR", "MADR Range", "MACD Stat", "MACD Stat Range", "News"
     };
 
     // Column widths (in Excel "characters" units).
     private static final double[] COLUMN_WIDTHS = {
-            14, 11, 26, 15, 10, 11, 12, 15, 10, 10, 10, 10, 12, 13, 12, 13, 12, 12, 80
+            14, 11, 26, 15, 10, 11, 12, 15, 10, 10, 10, 10, 12, 13, 12, 13, 12, 12, 10, 12, 11, 15, 80
     };
 
     /**
@@ -280,7 +281,11 @@ public final class XslxPrinter {
             appendInlineString(sb, cellRef(15, rowNum), centerStyle, r.macdSignalRange());
             appendNumber(sb, cellRef(16, rowNum), fourDecStyle, r.macdHistogram());
             appendInlineString(sb, cellRef(17, rowNum), centerStyle, r.macdHistogramRange());
-            appendInlineString(sb, cellRef(18, rowNum), textStyle, r.news());
+            appendNumber(sb, cellRef(18, rowNum), fourDecStyle, r.madr());
+            appendInlineString(sb, cellRef(19, rowNum), centerStyle, r.madrRange());
+            appendNumber(sb, cellRef(20, rowNum), fourDecStyle, r.macdStat());
+            appendInlineString(sb, cellRef(21, rowNum), centerStyle, r.macdStatRange());
+            appendInlineString(sb, cellRef(22, rowNum), textStyle, r.news());
             sb.append("    </row>\n");
             rowNum++;
         }
@@ -320,6 +325,24 @@ public final class XslxPrinter {
                         <cfRule type="cellIs" dxfId="0" priority="6" operator="lessThan"><formula>0</formula></cfRule>
                       </conditionalFormatting>
                     """, histRange));
+
+            // MADR is scaled 0..1: sell side (>=0.8) red, buy side (<=0.2) green.
+            String madrRange = "S2:S" + lastRow;
+            sb.append(String.format("""
+                      <conditionalFormatting sqref="%s">
+                        <cfRule type="cellIs" dxfId="0" priority="7" operator="greaterThanOrEqual"><formula>0.8</formula></cfRule>
+                        <cfRule type="cellIs" dxfId="1" priority="8" operator="lessThanOrEqual"><formula>0.2</formula></cfRule>
+                      </conditionalFormatting>
+                    """, madrRange));
+
+            // MACD stat is scaled 0..1: bearish (>=0.8) red, bullish (<=0.2) green.
+            String macdStatRange = "U2:U" + lastRow;
+            sb.append(String.format("""
+                      <conditionalFormatting sqref="%s">
+                        <cfRule type="cellIs" dxfId="0" priority="9" operator="greaterThanOrEqual"><formula>0.8</formula></cfRule>
+                        <cfRule type="cellIs" dxfId="1" priority="10" operator="lessThanOrEqual"><formula>0.2</formula></cfRule>
+                      </conditionalFormatting>
+                    """, macdStatRange));
         }
 
         sb.append("</worksheet>\n");

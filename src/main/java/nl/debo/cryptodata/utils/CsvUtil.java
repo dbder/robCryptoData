@@ -14,16 +14,16 @@ import java.util.Locale;
 
 /**
  * Reads and writes the
- * {@code symbol,interval,time,close,rsi,stochRsi,k,d,macd,macdSignal,macdHistogram,news}
+ * {@code symbol,interval,time,close,rsi,stochRsi,k,d,macd,macdSignal,macdHistogram,madr,macdStat,news}
  * CSV produced by {@link CryptoAnalysis}. The news headline is deliberately
  * the last column: it may contain commas, so it is parsed with a field limit
  * instead of quoting.
  */
 public final class CsvUtil {
 
-    public static final String HEADER = "symbol,interval,time,close,rsi,stochRsi,k,d,macd,macdSignal,macdHistogram,news";
+    public static final String HEADER = "symbol,interval,time,close,rsi,stochRsi,k,d,macd,macdSignal,macdHistogram,madr,macdStat,news";
 
-    private static final int FIELD_COUNT = 12;
+    private static final int FIELD_COUNT = 14;
 
     private CsvUtil() {
     }
@@ -46,7 +46,7 @@ public final class CsvUtil {
             for (var r : results) {
                 var csvLine = String.format(
                         Locale.US,
-                        "%s,%s,%s,%.2f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%s",
+                        "%s,%s,%s,%.2f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%s",
                         r.symbol(),
                         r.interval(),
                         r.time(),
@@ -58,6 +58,8 @@ public final class CsvUtil {
                         r.macd(),
                         r.macdSignal(),
                         r.macdHistogram(),
+                        r.madr(),
+                        r.macdStat(),
                         r.news()
                 );
                 writer.write(csvLine);
@@ -90,6 +92,27 @@ public final class CsvUtil {
                 continue;
             }
 
+            // Three file generations: news directly after macdHistogram,
+            // then with madr inserted, now with madr and macdStat. The
+            // 12-field case is ambiguous (madr or news?), so parse to decide.
+            double madr = 0.5;
+            double macdStat = 0.5;
+            String news = "";
+            if (f.length > 13) {
+                madr = Double.parseDouble(f[11]);
+                macdStat = Double.parseDouble(f[12]);
+                news = f[13];
+            } else if (f.length > 12) {
+                madr = Double.parseDouble(f[11]);
+                news = f[12];
+            } else if (f.length > 11) {
+                try {
+                    madr = Double.parseDouble(f[11]);
+                } catch (NumberFormatException e) {
+                    news = f[11];
+                }
+            }
+
             rows.add(new ResultRow(
                     f[0],
                     f[1],
@@ -102,7 +125,9 @@ public final class CsvUtil {
                     f.length > 8 ? Double.parseDouble(f[8]) : 0.0,
                     f.length > 9 ? Double.parseDouble(f[9]) : 0.0,
                     f.length > 10 ? Double.parseDouble(f[10]) : 0.0,
-                    f.length > 11 ? f[11] : ""
+                    madr,
+                    macdStat,
+                    news
             ));
         }
 

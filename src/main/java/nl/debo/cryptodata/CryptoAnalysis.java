@@ -30,6 +30,8 @@ public final class CryptoAnalysis {
     private static final int MACD_FAST_PERIOD = 12;
     private static final int MACD_SLOW_PERIOD = 26;
     private static final int MACD_SIGNAL_PERIOD = 9;
+    private static final int MADR_SMA_PERIOD = 50;
+    private static final int NORMALIZER_WINDOW = 50;
     private static final int KLINE_LIMIT = 200;
 
     /** News older than this is not considered "recent" and is left out. */
@@ -46,8 +48,12 @@ public final class CryptoAnalysis {
 
     public static void main(String[] args) throws Exception {
         var client = new BinanceClient();
+        // Normalization for the MADR and MACD 0..1 stats: swap either for a
+        // StochasticNormalizer or ClampNormalizer to compare strategies.
+        var normalizer = new ZScoreNormalizer(NORMALIZER_WINDOW);
         var analyzer = new IndicatorAnalyzer(RSI_PERIOD, STOCH_RSI_PERIOD, K_PERIOD, D_PERIOD,
-                MACD_FAST_PERIOD, MACD_SLOW_PERIOD, MACD_SIGNAL_PERIOD);
+                MACD_FAST_PERIOD, MACD_SLOW_PERIOD, MACD_SIGNAL_PERIOD,
+                MADR_SMA_PERIOD, normalizer, normalizer);
 
         Path appDir = FileUtil.applicationDir();
         List<String> symbols = FileUtil.readLinesWithFallback(
@@ -117,7 +123,7 @@ public final class CryptoAnalysis {
 
     private static void printRow(ResultRow row) {
         System.out.printf(
-                "%s | %s | %s | Close: %.2f | RSI: %.2f | StochRSI: %.4f | K: %.4f | D: %.4f | MACD: %.4f | Signal: %.4f | Hist: %.4f%s%n",
+                "%s | %s | %s | Close: %.2f | RSI: %.2f | StochRSI: %.4f | K: %.4f | D: %.4f | MACD: %.4f | Signal: %.4f | Hist: %.4f | MADR: %.4f | MACDstat: %.4f%s%n",
                 row.symbol(),
                 row.interval(),
                 row.time(),
@@ -129,6 +135,8 @@ public final class CryptoAnalysis {
                 row.macd(),
                 row.macdSignal(),
                 row.macdHistogram(),
+                row.madr(),
+                row.macdStat(),
                 row.news().isEmpty() ? "" : " | News: " + row.news()
         );
     }

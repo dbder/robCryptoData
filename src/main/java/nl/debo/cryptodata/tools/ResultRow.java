@@ -20,13 +20,15 @@ public record ResultRow(
         double macd,
         double macdSignal,
         double macdHistogram,
+        double madr,
+        double macdStat,
         String news
 ) {
 
     /** Returns a copy of this row with the given news headline. */
     public ResultRow withNews(String news) {
         return new ResultRow(symbol, interval, time, close, rsi, stochRsi, k, d,
-                macd, macdSignal, macdHistogram, news);
+                macd, macdSignal, macdHistogram, madr, macdStat, news);
     }
 
     /** RSI bucketed in steps of 10, e.g. {@code "60-70"}. */
@@ -63,6 +65,19 @@ public record ResultRow(
     /** Histogram relative to the zero line: {@code Positive}, {@code Negative} or {@code Zero}. */
     public String macdHistogramRange() {
         return signRange(macdHistogram);
+    }
+
+    /** MADR bucketed in steps of 0.2, e.g. {@code "0.2-0.4"} (0 = buy, 1 = sell). */
+    public String madrRange() {
+        return unitRange(madr);
+    }
+
+    /**
+     * Normalized MACD momentum bucketed in steps of 0.2 (0 = bullish
+     * momentum / buy, 1 = bearish momentum / sell, 0.5 = crossover).
+     */
+    public String macdStatRange() {
+        return unitRange(macdStat);
     }
 
     /** Buckets a 0..1 scaled value in steps of 0.2. */

@@ -338,6 +338,66 @@ public final class Indicators {
         return result;
     }
 
+    /**
+     * Distance ratio between price and its simple moving average:
+     * {@code (price - SMA) / SMA}. Positive means the price is stretched
+     * above the average, negative below. NaN-padded before the first full
+     * SMA window; feed the result to a {@link SignalNormalizer} to scale it
+     * 0..1.
+     */
+    public static List<Double> maDistanceRatio(
+            List<Double> prices,
+            int smaPeriod
+    ) {
+
+        var sma = sma(prices, smaPeriod);
+
+        var result = new ArrayList<Double>(
+                Collections.nCopies(prices.size(), Double.NaN)
+        );
+
+        for (int i = 0; i < prices.size(); i++) {
+
+            double average = sma.get(i);
+
+            if (!Double.isNaN(average) && average != 0) {
+                result.set(i, (prices.get(i) - average) / average);
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * MACD histogram (line minus signal) divided by price, giving a
+     * dimensionless momentum series that is comparable across coins and can
+     * be fed to a {@link SignalNormalizer}. NaN where either MACD input is
+     * NaN or the price is zero.
+     */
+    public static List<Double> scaledMacdHistogram(
+            List<Double> macd,
+            List<Double> macdSignal,
+            List<Double> prices
+    ) {
+
+        var result = new ArrayList<Double>(
+                Collections.nCopies(prices.size(), Double.NaN)
+        );
+
+        for (int i = 0; i < prices.size(); i++) {
+
+            double line = macd.get(i);
+            double signal = macdSignal.get(i);
+            double price = prices.get(i);
+
+            if (!Double.isNaN(line) && !Double.isNaN(signal) && price != 0) {
+                result.set(i, (line - signal) / price);
+            }
+        }
+
+        return result;
+    }
+
     public static List<Double> sma(
             List<Double> values,
             int period
