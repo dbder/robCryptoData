@@ -20,11 +20,26 @@ public final class BinanceClient {
             String interval,
             int limit
     ) {
+        return getKlinesAsync(symbol, interval, limit, -1);
+    }
+
+    /**
+     * Fetches klines starting at {@code startTime} (epoch millis, inclusive).
+     * A {@code startTime} before the pair's listing date returns candles from
+     * the pair's first candle; a negative value omits the parameter.
+     */
+    public CompletableFuture<List<Kline>> getKlinesAsync(
+            String symbol,
+            String interval,
+            int limit,
+            long startTime
+    ) {
         var uri = URI.create(
                 BASE_URL
                         + "?symbol=" + symbol
                         + "&interval=" + interval
                         + "&limit=" + limit
+                        + (startTime >= 0 ? "&startTime=" + startTime : "")
         );
 
         return http.getJson(uri).thenApply(BinanceClient::parseKlines);

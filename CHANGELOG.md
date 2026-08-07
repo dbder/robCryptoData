@@ -2,7 +2,12 @@
 
 Hier houden we bij wat er verandert in het project.
 
-## [Unreleased] - 2026-08-07
+## [2] - 2026-08-07
+
+### Nieuw
+- Nieuw startpunt `KlineHistoryImport` dat de ruwe candlesticks bewaart in `output/klines/` (één CSV per symbool+interval, bijv. `BTCEUR_1h.csv`). De eerste run haalt de volledige historie op vanaf de eerste candle van de munt op Binance; elke volgende run vult alleen de nieuwe candles aan. Gewoon vanuit IntelliJ starten; de jar zelf start nog steeds `CryptoAnalysis`.
+
+## [1] - 2026-08-07
 
 ### Nieuw
 - Range-kolommen in het XLSX-rapport, zodat je in de filterdropdowns een paar handige bakjes krijgt in plaats van een eindeloze lijst losse waardes:
