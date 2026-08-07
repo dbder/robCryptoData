@@ -24,8 +24,13 @@ public final class WalkForwardBacktest {
         this.refitInterval = refitInterval;
     }
 
-    /** Out-of-sample result of one model on one dataset. */
-    public record ModelResult(String modelName, int predictions, int correct, double logLossSum) {
+    /**
+     * Out-of-sample result of one model on one dataset. {@code probabilities}
+     * holds one entry per prediction, aligned with dataset rows starting at
+     * {@code minTrainSize} — the input for {@link TradingSimulation}.
+     */
+    public record ModelResult(String modelName, int predictions, int correct, double logLossSum,
+                              double[] probabilities) {
 
         public double accuracy() {
             return predictions == 0 ? Double.NaN : (double) correct / predictions;
@@ -40,6 +45,7 @@ public final class WalkForwardBacktest {
         int predictions = 0;
         int correct = 0;
         double logLossSum = 0;
+        double[] probabilities = new double[Math.max(0, dataset.size() - minTrainSize)];
 
         for (int t = minTrainSize; t < dataset.size(); t++) {
             if ((t - minTrainSize) % refitInterval == 0) {
@@ -50,6 +56,7 @@ public final class WalkForwardBacktest {
             }
 
             double probability = model.predictProbability(dataset.rows()[t]);
+            probabilities[t - minTrainSize] = probability;
             int predicted = probability >= 0.5 ? 1 : 0;
             int actual = dataset.labels()[t];
 
@@ -62,6 +69,6 @@ public final class WalkForwardBacktest {
             logLossSum += actual == 1 ? -Math.log(clamped) : -Math.log(1 - clamped);
         }
 
-        return new ModelResult(model.name(), predictions, correct, logLossSum);
+        return new ModelResult(model.name(), predictions, correct, logLossSum, probabilities);
     }
 }

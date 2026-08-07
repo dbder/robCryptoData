@@ -230,6 +230,114 @@ public final class Indicators {
         return result;
     }
 
+    /**
+     * Average True Range with Wilder smoothing, NaN-padded like the other
+     * indicators. The true range at each index needs the previous close, so
+     * values start at index {@code period}.
+     */
+    public static List<Double> atr(
+            List<Double> highs,
+            List<Double> lows,
+            List<Double> closes,
+            int period
+    ) {
+
+        var result = new ArrayList<Double>(
+                Collections.nCopies(closes.size(), Double.NaN)
+        );
+
+        if (closes.size() <= period) {
+            return result;
+        }
+
+        double trSum = 0;
+
+        for (int i = 1; i <= period; i++) {
+            trSum += trueRange(highs, lows, closes, i);
+        }
+
+        double atr = trSum / period;
+
+        result.set(period, atr);
+
+        for (int i = period + 1; i < closes.size(); i++) {
+
+            double tr = trueRange(highs, lows, closes, i);
+
+            atr = ((atr * (period - 1)) + tr) / period;
+
+            result.set(i, atr);
+        }
+
+        return result;
+    }
+
+    private static double trueRange(
+            List<Double> highs,
+            List<Double> lows,
+            List<Double> closes,
+            int i
+    ) {
+
+        double previousClose = closes.get(i - 1);
+
+        return Math.max(
+                highs.get(i) - lows.get(i),
+                Math.max(
+                        Math.abs(highs.get(i) - previousClose),
+                        Math.abs(lows.get(i) - previousClose)
+                )
+        );
+    }
+
+    /**
+     * Bollinger %B: where the price sits inside the band of
+     * {@code mean ± stdDevs * standard deviation} over the window
+     * (0 = lower band, 1 = upper band). NaN-padded before the first full
+     * window; a zero-width band yields 0.5.
+     */
+    public static List<Double> bollingerPercentB(
+            List<Double> prices,
+            int period,
+            double stdDevs
+    ) {
+
+        var result = new ArrayList<Double>(
+                Collections.nCopies(prices.size(), Double.NaN)
+        );
+
+        for (int i = period - 1; i < prices.size(); i++) {
+
+            double sum = 0;
+
+            for (int j = i - period + 1; j <= i; j++) {
+                sum += prices.get(j);
+            }
+
+            double mean = sum / period;
+
+            double squaredSum = 0;
+
+            for (int j = i - period + 1; j <= i; j++) {
+                double delta = prices.get(j) - mean;
+                squaredSum += delta * delta;
+            }
+
+            double std = Math.sqrt(squaredSum / period);
+
+            double band = 2 * stdDevs * std;
+
+            if (band == 0) {
+                result.set(i, 0.5);
+            } else {
+                double lower = mean - stdDevs * std;
+                result.set(i, (prices.get(i) - lower) / band);
+            }
+        }
+
+        return result;
+    }
+
     public static List<Double> sma(
             List<Double> values,
             int period
