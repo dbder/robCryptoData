@@ -58,9 +58,8 @@ public final class CryptoAnalysis {
         );
 
         var dateStr = LocalDate.now().toString();
-        var csvPath = appDir.resolve("data" + dateStr + ".csv");
-        var odsPath = appDir.resolve("data" + dateStr + ".ods");
-        var xlsxPath = appDir.resolve("data" + dateStr + ".xlsx");
+        var csvPath = appDir.resolve("output/data" + dateStr + ".csv");
+        var xlsxPath = appDir.resolve("output/data" + dateStr + ".xlsx");
         CsvUtil.ensureHeader(csvPath);
 
         List<String> activeSymbols = symbols.stream()
@@ -97,7 +96,6 @@ public final class CryptoAnalysis {
         }
 
         CsvUtil.appendResultRows(csvPath, results);
-        OdsPrinter.write(odsPath, dateStr, results);
         XslxPrinter.write(xlsxPath, dateStr, results);
     }
 

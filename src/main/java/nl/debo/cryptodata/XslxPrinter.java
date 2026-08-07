@@ -29,13 +29,14 @@ public final class XslxPrinter {
     }
 
     private static final String[] HEADERS = {
-            "Symbol", "Interval", "Time", "Close", "RSI", "StochRSI", "K", "D",
-            "MACD", "Signal", "Histogram", "News"
+            "Symbol", "Interval", "Time", "Close",
+            "RSI", "RSI Range", "StochRSI", "StochRSI Range", "K", "K Range", "D", "D Range",
+            "MACD", "MACD Range", "Signal", "Signal Range", "Histogram", "Hist Range", "News"
     };
 
     // Column widths (in Excel "characters" units).
     private static final double[] COLUMN_WIDTHS = {
-            14, 11, 26, 15, 10, 12, 10, 10, 12, 12, 12, 80
+            14, 11, 26, 15, 10, 11, 12, 15, 10, 10, 10, 10, 12, 13, 12, 13, 12, 12, 80
     };
 
     /**
@@ -266,13 +267,20 @@ public final class XslxPrinter {
             appendInlineString(sb, cellRef(2, rowNum), textStyle, r.time());
             appendNumber(sb, cellRef(3, rowNum), twoDecStyle, r.close());
             appendNumber(sb, cellRef(4, rowNum), fourDecStyle, r.rsi());
-            appendNumber(sb, cellRef(5, rowNum), fourDecStyle, r.stochRsi());
-            appendNumber(sb, cellRef(6, rowNum), fourDecStyle, r.k());
-            appendNumber(sb, cellRef(7, rowNum), fourDecStyle, r.d());
-            appendNumber(sb, cellRef(8, rowNum), fourDecStyle, r.macd());
-            appendNumber(sb, cellRef(9, rowNum), fourDecStyle, r.macdSignal());
-            appendNumber(sb, cellRef(10, rowNum), fourDecStyle, r.macdHistogram());
-            appendInlineString(sb, cellRef(11, rowNum), textStyle, r.news());
+            appendInlineString(sb, cellRef(5, rowNum), centerStyle, r.rsiRange());
+            appendNumber(sb, cellRef(6, rowNum), fourDecStyle, r.stochRsi());
+            appendInlineString(sb, cellRef(7, rowNum), centerStyle, r.stochRsiRange());
+            appendNumber(sb, cellRef(8, rowNum), fourDecStyle, r.k());
+            appendInlineString(sb, cellRef(9, rowNum), centerStyle, r.kRange());
+            appendNumber(sb, cellRef(10, rowNum), fourDecStyle, r.d());
+            appendInlineString(sb, cellRef(11, rowNum), centerStyle, r.dRange());
+            appendNumber(sb, cellRef(12, rowNum), fourDecStyle, r.macd());
+            appendInlineString(sb, cellRef(13, rowNum), centerStyle, r.macdRange());
+            appendNumber(sb, cellRef(14, rowNum), fourDecStyle, r.macdSignal());
+            appendInlineString(sb, cellRef(15, rowNum), centerStyle, r.macdSignalRange());
+            appendNumber(sb, cellRef(16, rowNum), fourDecStyle, r.macdHistogram());
+            appendInlineString(sb, cellRef(17, rowNum), centerStyle, r.macdHistogramRange());
+            appendInlineString(sb, cellRef(18, rowNum), textStyle, r.news());
             sb.append("    </row>\n");
             rowNum++;
         }
@@ -296,7 +304,7 @@ public final class XslxPrinter {
                     """, rsiRange));
 
             // StochRSI is scaled 0..1: overbought (>=0.8) red, oversold (<=0.2) green.
-            String stochRange = "F2:F" + lastRow;
+            String stochRange = "G2:G" + lastRow;
             sb.append(String.format("""
                       <conditionalFormatting sqref="%s">
                         <cfRule type="cellIs" dxfId="0" priority="3" operator="greaterThanOrEqual"><formula>0.8</formula></cfRule>
@@ -305,7 +313,7 @@ public final class XslxPrinter {
                     """, stochRange));
 
             // MACD histogram: above zero green (bullish), below zero red (bearish).
-            String histRange = "K2:K" + lastRow;
+            String histRange = "Q2:Q" + lastRow;
             sb.append(String.format("""
                       <conditionalFormatting sqref="%s">
                         <cfRule type="cellIs" dxfId="1" priority="5" operator="greaterThan"><formula>0</formula></cfRule>
