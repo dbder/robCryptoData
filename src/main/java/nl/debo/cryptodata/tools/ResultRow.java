@@ -80,6 +80,21 @@ public record ResultRow(
         return unitRange(macdStat);
     }
 
+    /**
+     * Combined 0..1 buy/sell score: the average of every 0..1-scaled
+     * statistic in the row (RSI/100, StochRSI, K, D, MADR, MACD stat), all
+     * oriented the same way. 0 = every indicator says buy, 1 = every
+     * indicator says sell, 0.5 = neutral or mixed.
+     */
+    public double score() {
+        return (rsi / 100.0 + stochRsi + k + d + madr + macdStat) / 6.0;
+    }
+
+    /** Score bucketed in steps of 0.2, e.g. {@code "0.2-0.4"} (0 = buy, 1 = sell). */
+    public String scoreRange() {
+        return unitRange(score());
+    }
+
     /** Buckets a 0..1 scaled value in steps of 0.2. */
     private static String unitRange(double value) {
         int idx = clampIndex(value * 5, 5);

@@ -2,6 +2,19 @@
 
 Hier houden we bij wat er verandert in het project.
 
+## [4] - 2026-08-07
+
+### Nieuw
+- MADR-statistiek (Moving Average Distance Ratio) in het rapport: hoe ver de koers van zijn SMA50 af staat, geschaald naar 0..1 waarbij 0 = koop en 1 = verkoop (0.5 = op het gemiddelde). De ruwe afstand komt uit het nieuwe `Indicators.maDistanceRatio`.
+- Genormaliseerde MACD-statistiek (`macdStat`): het MACD-histogram gedeeld door de koers (nieuw `Indicators.scaledMacdHistogram`), geschaald naar 0..1 en omgedraaid zodat 0 = bullish momentum (koop) en 1 = bearish momentum (verkoop); 0.5 betekent een crossover.
+- Verwisselbare normalisatiestrategieën via de nieuwe interface `SignalNormalizer`: `ZScoreNormalizer` (rollende standaarddeviatie + logistische curve, de standaard), `StochasticNormalizer` (min/max-positie binnen het venster) en `ClampNormalizer` (vaste band). `IndicatorAnalyzer` krijgt er twee mee, zodat MADR en MACD los van elkaar te experimenteren zijn.
+- Score-kolom in het XLSX-rapport: het gemiddelde van alle zes 0..1-statistieken (RSI/100, StochRSI, K, D, MADR, MACD-stat) als `score()` op `ResultRow`; rood vanaf 0.7, groen tot 0.3.
+
+### Veranderd
+- CSV krijgt de kolommen `madr` en `macdStat`; oudere bestanden (zonder deze kolommen) worden nog steeds ingelezen, ontbrekende waarden vallen terug op neutraal 0.5.
+- XLSX krijgt de kolommen MADR, MACD Stat en Score met bijbehorende Range-filterbakjes en rood/groen-opmaak (≥0.8 / ≤0.2, voor Score 0.7/0.3); de consoleregel toont MADR en MACDstat.
+- Bij te weinig historie voor de normalisatie (SMA-venster plus normalisatievenster, vooral bij 1M-candles van jonge munten) vallen MADR en MACD-stat terug op neutraal 0.5 in plaats van de rij te laten vervallen.
+
 ## [3] - 2026-08-07
 
 ### Nieuw

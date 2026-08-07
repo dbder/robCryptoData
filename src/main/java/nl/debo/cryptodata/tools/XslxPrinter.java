@@ -32,12 +32,12 @@ public final class XslxPrinter {
             "Symbol", "Interval", "Time", "Close",
             "RSI", "RSI Range", "StochRSI", "StochRSI Range", "K", "K Range", "D", "D Range",
             "MACD", "MACD Range", "Signal", "Signal Range", "Histogram", "Hist Range",
-            "MADR", "MADR Range", "MACD Stat", "MACD Stat Range", "News"
+            "MADR", "MADR Range", "MACD Stat", "MACD Stat Range", "Score", "Score Range", "News"
     };
 
     // Column widths (in Excel "characters" units).
     private static final double[] COLUMN_WIDTHS = {
-            14, 11, 26, 15, 10, 11, 12, 15, 10, 10, 10, 10, 12, 13, 12, 13, 12, 12, 10, 12, 11, 15, 80
+            14, 11, 26, 15, 10, 11, 12, 15, 10, 10, 10, 10, 12, 13, 12, 13, 12, 12, 10, 12, 11, 15, 10, 12, 80
     };
 
     /**
@@ -285,7 +285,9 @@ public final class XslxPrinter {
             appendInlineString(sb, cellRef(19, rowNum), centerStyle, r.madrRange());
             appendNumber(sb, cellRef(20, rowNum), fourDecStyle, r.macdStat());
             appendInlineString(sb, cellRef(21, rowNum), centerStyle, r.macdStatRange());
-            appendInlineString(sb, cellRef(22, rowNum), textStyle, r.news());
+            appendNumber(sb, cellRef(22, rowNum), fourDecStyle, r.score());
+            appendInlineString(sb, cellRef(23, rowNum), centerStyle, r.scoreRange());
+            appendInlineString(sb, cellRef(24, rowNum), textStyle, r.news());
             sb.append("    </row>\n");
             rowNum++;
         }
@@ -343,6 +345,16 @@ public final class XslxPrinter {
                         <cfRule type="cellIs" dxfId="1" priority="10" operator="lessThanOrEqual"><formula>0.2</formula></cfRule>
                       </conditionalFormatting>
                     """, macdStatRange));
+
+            // Score averages six stats, so extremes are diluted: flag
+            // confluence at >=0.7 (sell) and <=0.3 (buy) instead of 0.8/0.2.
+            String scoreRange = "W2:W" + lastRow;
+            sb.append(String.format("""
+                      <conditionalFormatting sqref="%s">
+                        <cfRule type="cellIs" dxfId="0" priority="11" operator="greaterThanOrEqual"><formula>0.7</formula></cfRule>
+                        <cfRule type="cellIs" dxfId="1" priority="12" operator="lessThanOrEqual"><formula>0.3</formula></cfRule>
+                      </conditionalFormatting>
+                    """, scoreRange));
         }
 
         sb.append("</worksheet>\n");
