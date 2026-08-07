@@ -9,7 +9,7 @@ import java.util.Optional;
  * kline series and extracts the most recent row where every indicator has a
  * value.
  */
-public final class StochRsiAnalyzer {
+public final class IndicatorAnalyzer {
 
     private final int rsiPeriod;
     private final int stochRsiPeriod;
@@ -19,8 +19,8 @@ public final class StochRsiAnalyzer {
     private final int macdSlowPeriod;
     private final int macdSignalPeriod;
 
-    public StochRsiAnalyzer(int rsiPeriod, int stochRsiPeriod, int kPeriod, int dPeriod,
-                            int macdFastPeriod, int macdSlowPeriod, int macdSignalPeriod) {
+    public IndicatorAnalyzer(int rsiPeriod, int stochRsiPeriod, int kPeriod, int dPeriod,
+                             int macdFastPeriod, int macdSlowPeriod, int macdSignalPeriod) {
         this.rsiPeriod = rsiPeriod;
         this.stochRsiPeriod = stochRsiPeriod;
         this.kPeriod = kPeriod;
@@ -33,11 +33,10 @@ public final class StochRsiAnalyzer {
     /**
      * Returns the latest complete indicator row for the given klines, or empty
      * if there is not enough data. The last kline is assumed to be the
-     * currently open candle and is ignored.
-     *
-     * @param news recent headline for the coin, empty if there is none
+     * currently open candle and is ignored. The returned row has no news;
+     * attach it with {@link ResultRow#withNews(String)}.
      */
-    public Optional<ResultRow> latestRow(String symbol, String interval, List<Kline> klines, String news) {
+    public Optional<ResultRow> latestRow(String symbol, String interval, List<Kline> klines) {
         if (klines.size() <= 1) {
             return Optional.empty();
         }
@@ -87,7 +86,7 @@ public final class StochRsiAnalyzer {
                     macd.get(i),
                     macdSignal.get(i),
                     macd.get(i) - macdSignal.get(i),
-                    news
+                    ""
             ));
         }
 

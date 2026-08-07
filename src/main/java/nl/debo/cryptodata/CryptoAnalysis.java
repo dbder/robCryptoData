@@ -46,7 +46,7 @@ public final class CryptoAnalysis {
 
     public static void main(String[] args) throws Exception {
         var client = new BinanceClient();
-        var analyzer = new StochRsiAnalyzer(RSI_PERIOD, STOCH_RSI_PERIOD, K_PERIOD, D_PERIOD,
+        var analyzer = new IndicatorAnalyzer(RSI_PERIOD, STOCH_RSI_PERIOD, K_PERIOD, D_PERIOD,
                 MACD_FAST_PERIOD, MACD_SLOW_PERIOD, MACD_SIGNAL_PERIOD);
 
         Path appDir = FileUtil.applicationDir();
@@ -81,8 +81,9 @@ public final class CryptoAnalysis {
                     .flatMap(symbol -> INTERVALS.stream().map(interval ->
                             client.getKlinesAsync(symbol, interval, KLINE_LIMIT)
                                     .thenAcceptAsync(klines ->
-                                            analyzer.latestRow(symbol, interval, klines,
-                                                            newsByCoin.getOrDefault(baseAsset(symbol), ""))
+                                            analyzer.latestRow(symbol, interval, klines)
+                                                    .map(row -> row.withNews(
+                                                            newsByCoin.getOrDefault(baseAsset(symbol), "")))
                                                     .ifPresent(row -> {
                                                         printRow(row);
                                                         results.add(row);

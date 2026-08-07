@@ -23,6 +23,12 @@ public record ResultRow(
         String news
 ) {
 
+    /** Returns a copy of this row with the given news headline. */
+    public ResultRow withNews(String news) {
+        return new ResultRow(symbol, interval, time, close, rsi, stochRsi, k, d,
+                macd, macdSignal, macdHistogram, news);
+    }
+
     /** RSI bucketed in steps of 10, e.g. {@code "60-70"}. */
     public String rsiRange() {
         int idx = clampIndex(rsi / 10, 10);
