@@ -2,6 +2,18 @@
 
 Hier houden we bij wat er verandert in het project.
 
+## [5] - 2026-08-09
+
+### Nieuw
+- Bitvavo naast Binance: nieuw startpunt `CryptoAnalysisBitvavo`, met de gedeelde pijplijn in `CryptoAnalysis` (client via de nieuwe interface `KlineSource`, symbolenbestand, intervallen en uitvoernaam per beurs). Uitvoer in `output/data-bitvavo<datum>.csv/.xlsx`.
+- `symbols-bitvavo` met alle 439 Bitvavo-markten (EUR en USDC) uit `GET /v2/markets`.
+- Kolom "EUR/USD" in het XLSX-rapport: de noteringsvaluta van het paar, afgeleid met het nieuwe `PairSymbols` dat beide symboolformaten begrijpt (`SOL-EUR` én `SOLEUR`).
+- Bitvavo-rate-limiting (limiet: 1000 punten/min per IP, overschrijding = 15 min IP-ban): `BitvavoRateLimiter` houdt verzoeken 65 ms uit elkaar, synchroniseert het budget met de `bitvavo-ratelimit-*`-headers en pauzeert tot het venster reset als het budget opraakt; bij een 429 wacht `JsonHttp` tot de ban afloopt en probeert opnieuw. Resterende punten verschijnen periodiek in de console.
+
+### Veranderd
+- Nieuws staat op een eigen tabblad "News" (één regel per munt) in plaats van als kolom in het resultatenblad.
+- Het 1h-interval is weggehaald: de rapporten dekken nu 1d, 1w/1W en 1M.
+
 ## [4] - 2026-08-07
 
 ### Nieuw
