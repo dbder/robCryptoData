@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import nl.debo.cryptodata.utils.JsonHttp;
 
 import java.net.URI;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -22,19 +24,35 @@ public final class BitvavoClient implements KlineSource {
             String interval,
             int limit
     ) {
+        return getKlinesAsync(market, interval, limit, -1, -1);
+    }
+
+    /**
+     * Fetches klines with open time in {@code [start, end)} (epoch millis).
+     * A negative value omits the parameter. Note that {@code limit} keeps the
+     * <em>newest</em> candles of the range: paging through history must walk
+     * the {@code end} bound backwards.
+     */
+    public CompletableFuture<List<Kline>> getKlinesAsync(
+            String market,
+            String interval,
+            int limit,
+            long start,
+            long end
+    ) {
         var uri = URI.create(
                 BASE_URL
                         + "/" + market + "/candles"
                         + "?interval=" + interval
                         + "&limit=" + limit
+                        + (start >= 0 ? "&start=" + start : "")
+                        + (end >= 0 ? "&end=" + end : "")
         );
 
         return http.getJson(uri).thenApply(root -> parseKlines(root, interval));
     }
 
     private static List<Kline> parseKlines(JsonNode root, String interval) {
-        long intervalMillis = intervalMillis(interval);
-
         var result = new ArrayList<Kline>();
 
         for (JsonNode candle : root) {
@@ -47,7 +65,7 @@ public final class BitvavoClient implements KlineSource {
                     candle.get(3).asDouble(),       // Low
                     candle.get(4).asDouble(),       // Close
                     candle.get(5).asDouble(),       // Volume
-                    openTime + intervalMillis - 1   // Close time (not provided by Bitvavo)
+                    closeTime(openTime, interval)   // Close time (not provided by Bitvavo)
             ));
         }
 
@@ -57,17 +75,31 @@ public final class BitvavoClient implements KlineSource {
         return result;
     }
 
-    private static long intervalMillis(String interval) {
+    /**
+     * Last millisecond of the candle's period. Months vary in length, so the
+     * {@code 1M} close is computed on the calendar (UTC) instead of with a
+     * fixed duration — a fixed 30 days would mark a still-open 31-day month
+     * as closed.
+     */
+    private static long closeTime(long openTime, String interval) {
         long value = Long.parseLong(interval.substring(0, interval.length() - 1));
         char unit = interval.charAt(interval.length() - 1);
 
-        return switch (unit) {
+        if (unit == 'M') {
+            return Instant.ofEpochMilli(openTime)
+                    .atZone(ZoneOffset.UTC)
+                    .plusMonths(value)
+                    .toInstant()
+                    .toEpochMilli() - 1;
+        }
+
+        long intervalMillis = switch (unit) {
             case 'm' -> value * 60_000L;
             case 'h' -> value * 3_600_000L;
             case 'd' -> value * 86_400_000L;
             case 'w', 'W' -> value * 7 * 86_400_000L;
-            case 'M' -> value * 30 * 86_400_000L;
             default -> throw new IllegalArgumentException("Unknown interval: " + interval);
         };
+        return openTime + intervalMillis - 1;
     }
 }

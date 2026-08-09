@@ -9,6 +9,7 @@ Hier houden we bij wat er verandert in het project.
 - `symbols-bitvavo` met alle 439 Bitvavo-markten (EUR en USDC) uit `GET /v2/markets`.
 - Kolom "EUR/USD" in het XLSX-rapport: de noteringsvaluta van het paar, afgeleid met het nieuwe `PairSymbols` dat beide symboolformaten begrijpt (`SOL-EUR` én `SOLEUR`).
 - Bitvavo-rate-limiting (limiet: 1000 punten/min per IP, overschrijding = 15 min IP-ban): `BitvavoRateLimiter` houdt verzoeken 65 ms uit elkaar, synchroniseert het budget met de `bitvavo-ratelimit-*`-headers en pauzeert tot het venster reset als het budget opraakt; bij een 429 wacht `JsonHttp` tot de ban afloopt en probeert opnieuw. Resterende punten verschijnen periodiek in de console.
+- Nieuw startpunt `KlineHistoryImportBitvavo`: candlestick-historie voor alle Bitvavo-markten in `output/klines-bitvavo/`, zoals `KlineHistoryImport` voor Binance. Bitvavo pagineert achterstevoren (`limit` houdt de nieuwste candles), dus de import loopt met `start`/`end`-vensters terug in de tijd; `BitvavoClient` berekent maandcandle-sluittijden nu exact op de kalender.
 
 ### Veranderd
 - Nieuws staat op een eigen tabblad "News" (één regel per munt) in plaats van als kolom in het resultatenblad.
