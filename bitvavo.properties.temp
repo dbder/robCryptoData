@@ -1,0 +1,6 @@
+# kopieer naar bitvavo.properties
+# maak een key/secret aan: https://docs.bitvavo.com/docs/get-started/#create-an-api-key-and-secret
+# kies alleen lezen !
+# vul onderstaande waardes
+apiKey=<KEY>
+apiSecret=<SECRET>

@@ -2,6 +2,18 @@
 
 Hier houden we bij wat er verandert in het project.
 
+## [6] - 2026-08-09
+
+### Nieuw
+- Nieuw startpunt `PrivateInfoImportBitvavo`: het eigen Bitvavo-saldo gewaardeerd in EUR, met per asset het portfolio-aandeel en de verandering t.o.v. de vorige run, 24h/7d/30d-portfoliostatistieken en netto-inleg + totale winst/verlies uit de EUR-stortings- en opnamehistorie. Elke run schrijft een snapshot naar `output/balance-bitvavo/snapshots.csv`, waar de historiekolommen uit groeien. Vereist een `bitvavo.properties` (gitignored, read-only API-key volstaat) — kopieer `bitvavo.properties.temp` als startpunt.
+- Nieuwe bouwstenen voor de privé-API: `BitvavoCredentials` (leest het properties-bestand), `BitvavoAuth` (HMAC-SHA256-handtekening), `BitvavoPrivateClient` (saldo, stortingen, opnames) en `BalanceCsvStore` (snapshot-CSV). De publieke `BitvavoClient` kan nu ook alle marktprijzen in één call ophalen (`getTickerPricesAsync`), en `JsonHttp` ondersteunt extra request-headers die per poging opnieuw worden berekend zodat handtekeningen vers blijven bij rate-limit-retries.
+- Analyserapport per munt in `output/coinanalysis/` (428 stuks): overzicht, tijdlijn, fundamentals via CoinPaprika en prijshistorie uit de lokale Bitvavo-dagcandles.
+- Kleur in de console via het nieuwe `ConsoleColor`: groen voor start/klaar-meldingen en positieve veranderingen, rood voor negatieve veranderingen, oranje voor waarschuwingen (rate limits, retries, overgeslagen symbolen) — gebruikt in de analyse, beide kline-imports, de rate limiter en de XLSX-schrijver.
+
+### Veranderd
+- De Bitvavo-kline-import haalt naast 1d/1W/1M nu ook de intraday-intervallen 1h, 2h, 4h, 6h, 8h en 12h op, en slaat het verzoek helemaal over als de eerstvolgende candle nog niet gesloten kan zijn (nieuw `KlineCsvStore.lastSavedCloseTime` plus een publieke `BitvavoClient.closeTime`): "up to date, no request needed".
+- `output/klines-bitvavo/` en `output/coinanalysis/` gaan mee de repo in (uitzonderingen in `.gitignore`); `bitvavo.properties` met de API-sleutel is juist toegevoegd aan `.gitignore`.
+
 ## [5] - 2026-08-09
 
 ### Nieuw
