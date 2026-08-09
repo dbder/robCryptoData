@@ -81,7 +81,7 @@ public final class BitvavoClient implements KlineSource {
      * fixed duration — a fixed 30 days would mark a still-open 31-day month
      * as closed.
      */
-    private static long closeTime(long openTime, String interval) {
+    public static long closeTime(long openTime, String interval) {
         long value = Long.parseLong(interval.substring(0, interval.length() - 1));
         char unit = interval.charAt(interval.length() - 1);
 

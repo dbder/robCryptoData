@@ -66,6 +66,18 @@ public final class KlineCsvStore {
      * and skipped.
      */
     public static long lastSavedOpenTime(Path csvPath) {
+        return lastSavedField(csvPath, 0);
+    }
+
+    /**
+     * The closeTime of the last candle saved in {@code csvPath}, or {@code -1}
+     * if the file does not exist or holds no parseable data line.
+     */
+    public static long lastSavedCloseTime(Path csvPath) {
+        return lastSavedField(csvPath, 6);
+    }
+
+    private static long lastSavedField(Path csvPath, int field) {
         if (!Files.exists(csvPath)) {
             return -1;
         }
@@ -76,13 +88,16 @@ public final class KlineCsvStore {
                 if (line.isEmpty()) {
                     continue;
                 }
-                int comma = line.indexOf(',');
+                String[] f = line.split(",");
                 try {
-                    return Long.parseLong(comma < 0 ? line : line.substring(0, comma));
+                    if (f.length > field) {
+                        return Long.parseLong(f[field]);
+                    }
                 } catch (NumberFormatException e) {
-                    System.err.println(ConsoleColor.orange(
-                            "Skipping malformed line " + (i + 1) + " in " + csvPath + ": " + line));
+                    // fall through to the malformed-line warning
                 }
+                System.err.println(ConsoleColor.orange(
+                        "Skipping malformed line " + (i + 1) + " in " + csvPath + ": " + line));
             }
             return -1;
         } catch (IOException e) {

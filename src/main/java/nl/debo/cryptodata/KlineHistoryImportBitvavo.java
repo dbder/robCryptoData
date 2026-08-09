@@ -91,8 +91,17 @@ public final class KlineHistoryImportBitvavo {
     private static void importHistory(BitvavoClient client, Path klinesDir, String market, String interval) {
         try {
             Path csvPath = klinesDir.resolve(market + "_" + interval + ".csv");
-            long start = KlineCsvStore.lastSavedOpenTime(csvPath) + 1;
             long now = System.currentTimeMillis();
+
+            // The candle after the last saved one has not closed yet: nothing
+            // new can exist, so skip the request entirely.
+            long lastClose = KlineCsvStore.lastSavedCloseTime(csvPath);
+            if (lastClose >= 0 && BitvavoClient.closeTime(lastClose + 1, interval) > now) {
+                System.out.println(market + " " + interval + ": up to date, no request needed");
+                return;
+            }
+
+            long start = KlineCsvStore.lastSavedOpenTime(csvPath) + 1;
 
             // openTime -> kline; sorts chronologically and drops duplicates.
             var byOpenTime = new TreeMap<Long, Kline>();
