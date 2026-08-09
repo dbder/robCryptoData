@@ -1,6 +1,7 @@
 package nl.debo.cryptodata;
 
 import nl.debo.cryptodata.tools.BitvavoClient;
+import nl.debo.cryptodata.tools.PairSymbols;
 
 import java.util.List;
 
@@ -21,14 +22,8 @@ public final class CryptoAnalysisBitvavo {
                 new BitvavoClient(),
                 "symbols-bitvavo",
                 INTERVALS,
-                CryptoAnalysisBitvavo::baseAsset,
+                PairSymbols::base,
                 "data-bitvavo"
         ).run();
-    }
-
-    /** Extracts the base coin from a market, e.g. {@code "SOL-EUR" -> "SOL"}. */
-    private static String baseAsset(String market) {
-        int dash = market.indexOf('-');
-        return dash > 0 ? market.substring(0, dash) : market;
     }
 }

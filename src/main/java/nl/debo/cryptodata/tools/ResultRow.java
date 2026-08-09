@@ -31,6 +31,19 @@ public record ResultRow(
                 macd, macdSignal, macdHistogram, madr, macdStat, news);
     }
 
+    /**
+     * Reporting currency of the pair: {@code "EUR"} for EUR-quoted pairs,
+     * {@code "USD"} for pairs quoted in dollars or dollar stablecoins
+     * (USD, USDT, USDC, BUSD), otherwise the raw quote asset (e.g. {@code "BTC"}).
+     */
+    public String quoteCurrency() {
+        String quote = PairSymbols.quote(symbol);
+        return switch (quote) {
+            case "USDT", "USDC", "BUSD", "USD" -> "USD";
+            default -> quote;
+        };
+    }
+
     /** RSI bucketed in steps of 10, e.g. {@code "60-70"}. */
     public String rsiRange() {
         int idx = clampIndex(rsi / 10, 10);
