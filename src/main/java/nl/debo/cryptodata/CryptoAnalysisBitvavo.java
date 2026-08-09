@@ -12,7 +12,7 @@ import java.util.List;
  */
 public final class CryptoAnalysisBitvavo {
 
-    private static final List<String> INTERVALS = List.of("1h", "1d", "1W", "1M");
+    private static final List<String> INTERVALS = List.of("1d", "1W", "1M");
 
     private CryptoAnalysisBitvavo() {
     }

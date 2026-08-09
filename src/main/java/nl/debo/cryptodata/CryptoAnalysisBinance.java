@@ -11,7 +11,7 @@ import java.util.List;
  */
 public final class CryptoAnalysisBinance {
 
-    private static final List<String> INTERVALS = List.of("1h", "1d", "1w", "1M");
+    private static final List<String> INTERVALS = List.of("1d", "1w", "1M");
 
     private CryptoAnalysisBinance() {
     }

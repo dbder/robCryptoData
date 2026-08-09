@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.TreeMap;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -32,13 +33,17 @@ public final class XslxPrinter {
             "Symbol", "EUR/USD", "Interval", "Time", "Close",
             "RSI", "RSI Range", "StochRSI", "StochRSI Range", "K", "K Range", "D", "D Range",
             "MACD", "MACD Range", "Signal", "Signal Range", "Histogram", "Hist Range",
-            "MADR", "MADR Range", "MACD Stat", "MACD Stat Range", "Score", "Score Range", "News"
+            "MADR", "MADR Range", "MACD Stat", "MACD Stat Range", "Score", "Score Range"
     };
 
     // Column widths (in Excel "characters" units).
     private static final double[] COLUMN_WIDTHS = {
-            14, 10, 11, 26, 15, 10, 11, 12, 15, 10, 10, 10, 10, 12, 13, 12, 13, 12, 12, 10, 12, 11, 15, 10, 12, 80
+            14, 10, 11, 26, 15, 10, 11, 12, 15, 10, 10, 10, 10, 12, 13, 12, 13, 12, 12, 10, 12, 11, 15, 10, 12
     };
+
+    private static final String[] NEWS_HEADERS = {"Coin", "News"};
+
+    private static final double[] NEWS_COLUMN_WIDTHS = {14, 150};
 
     /**
      * Generates the spreadsheet.
@@ -57,6 +62,7 @@ public final class XslxPrinter {
             writeEntry(zipOut, "xl/_rels/workbook.xml.rels", workbookRelsXml());
             writeEntry(zipOut, "xl/styles.xml", stylesXml());
             writeEntry(zipOut, "xl/worksheets/sheet1.xml", sheetXml(results));
+            writeEntry(zipOut, "xl/worksheets/sheet2.xml", newsSheetXml(results));
 
             System.out.println("Successfully generated XLSX report: " + xlsxPath);
         } catch (Exception e) {
@@ -78,6 +84,7 @@ public final class XslxPrinter {
                   <Default Extension="xml" ContentType="application/xml"/>
                   <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
                   <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+                  <Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
                   <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
                   <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
                   <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
@@ -128,6 +135,7 @@ public final class XslxPrinter {
                           xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
                   <sheets>
                     <sheet name="Crypto Results" sheetId="1" r:id="rId1"/>
+                    <sheet name="News" sheetId="2" r:id="rId2"/>
                   </sheets>
                 </workbook>
                 """;
@@ -138,7 +146,8 @@ public final class XslxPrinter {
                 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
                 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
                   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
-                  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+                  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/>
+                  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
                 </Relationships>
                 """;
     }
@@ -288,7 +297,6 @@ public final class XslxPrinter {
             appendInlineString(sb, cellRef(22, rowNum), centerStyle, r.macdStatRange());
             appendNumber(sb, cellRef(23, rowNum), fourDecStyle, r.score());
             appendInlineString(sb, cellRef(24, rowNum), centerStyle, r.scoreRange());
-            appendInlineString(sb, cellRef(25, rowNum), textStyle, r.news());
             sb.append("    </row>\n");
             rowNum++;
         }
@@ -357,6 +365,76 @@ public final class XslxPrinter {
                       </conditionalFormatting>
                     """, scoreRange));
         }
+
+        sb.append("</worksheet>\n");
+        return sb.toString();
+    }
+
+    /**
+     * The "News" page: one row per base coin that has a recent headline. News
+     * is looked up once per coin, so the per-symbol/interval duplicates are
+     * collapsed here.
+     */
+    private static String newsSheetXml(List<ResultRow> results) {
+        var newsByCoin = new TreeMap<String, String>();
+        for (var r : results) {
+            if (!r.news().isEmpty()) {
+                newsByCoin.putIfAbsent(PairSymbols.base(r.symbol()), r.news());
+            }
+        }
+
+        var sb = new StringBuilder();
+        sb.append("""
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+                """);
+
+        // Freeze the header row.
+        sb.append("""
+                  <sheetViews>
+                    <sheetView workbookViewId="0">
+                      <pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>
+                      <selection pane="bottomLeft" activeCell="A2" sqref="A2"/>
+                    </sheetView>
+                  </sheetViews>
+                """);
+
+        sb.append("  <sheetFormatPr defaultRowHeight=\"15\"/>\n");
+
+        sb.append("  <cols>\n");
+        for (int c = 0; c < NEWS_COLUMN_WIDTHS.length; c++) {
+            sb.append(String.format(
+                    Locale.US,
+                    "    <col min=\"%d\" max=\"%d\" width=\"%.2f\" customWidth=\"1\"/>\n",
+                    c + 1, c + 1, NEWS_COLUMN_WIDTHS[c]));
+        }
+        sb.append("  </cols>\n");
+
+        sb.append("  <sheetData>\n");
+
+        sb.append("    <row r=\"1\" ht=\"20\" customHeight=\"1\">\n");
+        for (int c = 0; c < NEWS_HEADERS.length; c++) {
+            sb.append(String.format(
+                    "      <c r=\"%s\" s=\"1\" t=\"inlineStr\"><is><t>%s</t></is></c>\n",
+                    cellRef(c, 1), XmlUtil.escapeXml(NEWS_HEADERS[c])));
+        }
+        sb.append("    </row>\n");
+
+        int rowNum = 2;
+        for (var entry : newsByCoin.entrySet()) {
+            int textStyle = (rowNum % 2) == 0 ? 3 : 2;
+            sb.append(String.format("    <row r=\"%d\">\n", rowNum));
+            appendInlineString(sb, cellRef(0, rowNum), textStyle, entry.getKey());
+            appendInlineString(sb, cellRef(1, rowNum), textStyle, entry.getValue());
+            sb.append("    </row>\n");
+            rowNum++;
+        }
+
+        sb.append("  </sheetData>\n");
+
+        sb.append(String.format(
+                "  <autoFilter ref=\"A1:B%d\"/>\n",
+                Math.max(newsByCoin.size() + 1, 1)));
 
         sb.append("</worksheet>\n");
         return sb.toString();
