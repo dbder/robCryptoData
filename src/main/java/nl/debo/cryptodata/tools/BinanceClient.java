@@ -8,13 +8,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public final class BinanceClient {
+public final class BinanceClient implements KlineSource {
 
     private static final String BASE_URL =
             "https://api.binance.com/api/v3/klines";
 
     private final JsonHttp http = new JsonHttp("Binance API");
 
+    @Override
     public CompletableFuture<List<Kline>> getKlinesAsync(
             String symbol,
             String interval,

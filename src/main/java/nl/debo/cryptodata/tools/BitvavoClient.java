@@ -9,13 +9,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-public final class BitvavoClient {
+public final class BitvavoClient implements KlineSource {
 
     private static final String BASE_URL =
             "https://api.bitvavo.com/v2";
 
     private final JsonHttp http = new JsonHttp("Bitvavo API");
 
+    @Override
     public CompletableFuture<List<Kline>> getKlinesAsync(
             String market,
             String interval,
