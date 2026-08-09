@@ -73,9 +73,9 @@ public final class JsonHttp {
 
                 if (response.statusCode() == 429 && attempt < MAX_ATTEMPTS) {
                     Duration delay = throttle.retryDelay(response);
-                    System.err.printf(
-                            "%s rate limited (HTTP 429), retrying in %ds (attempt %d/%d)%n",
-                            apiName, delay.toSeconds(), attempt, MAX_ATTEMPTS);
+                    System.err.println(ConsoleColor.orange(String.format(
+                            "%s rate limited (HTTP 429), retrying in %ds (attempt %d/%d)",
+                            apiName, delay.toSeconds(), attempt, MAX_ATTEMPTS)));
                     Thread.sleep(delay);
                     continue;
                 }

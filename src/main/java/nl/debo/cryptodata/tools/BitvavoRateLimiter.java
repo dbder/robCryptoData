@@ -1,5 +1,6 @@
 package nl.debo.cryptodata.tools;
 
+import nl.debo.cryptodata.utils.ConsoleColor;
 import nl.debo.cryptodata.utils.RequestThrottle;
 
 import java.net.http.HttpResponse;
@@ -85,9 +86,9 @@ public final class BitvavoRateLimiter implements RequestThrottle {
                 nextSlotMillis = mySlot + PACE_MILLIS;
                 if (now - lastPauseLogMillis > 5_000) {
                     lastPauseLogMillis = now;
-                    System.out.printf(
-                            "Bitvavo rate limit budget nearly spent (%d/%d points left), pausing %.1fs until the window resets%n",
-                            remaining, limit, (resume - now) / 1000.0);
+                    System.out.println(ConsoleColor.orange(String.format(
+                            "Bitvavo rate limit budget nearly spent (%d/%d points left), pausing %.1fs until the window resets",
+                            remaining, limit, (resume - now) / 1000.0)));
                 }
             }
         }
@@ -132,13 +133,13 @@ public final class BitvavoRateLimiter implements RequestThrottle {
         }
 
         if (response.statusCode() == 429) {
-            System.err.printf(
-                    "Bitvavo rate limit exceeded (HTTP 429) — unauthenticated clients are blocked for 15 minutes%n");
+            System.err.println(ConsoleColor.orange(
+                    "Bitvavo rate limit exceeded (HTTP 429) — unauthenticated clients are blocked for 15 minutes"));
         }
         if (print) {
-            System.out.printf(
-                    "Bitvavo rate limit: %d/%d points remaining (window resets in %.1fs)%n",
-                    shownRemaining, shownLimit, resetInMillis / 1000.0);
+            System.out.println(ConsoleColor.orange(String.format(
+                    "Bitvavo rate limit: %d/%d points remaining (window resets in %.1fs)",
+                    shownRemaining, shownLimit, resetInMillis / 1000.0)));
         }
     }
 

@@ -66,7 +66,7 @@ public final class CsvUtil {
                 writer.newLine();
             }
         } catch (IOException e) {
-            System.err.println("Error writing to CSV: " + e.getMessage());
+            System.err.println(ConsoleColor.orange("Error writing to CSV: " + e.getMessage()));
         }
     }
 
@@ -88,7 +88,7 @@ public final class CsvUtil {
 
             String[] f = line.split(",", FIELD_COUNT);
             if (f.length < 8) {
-                System.err.println("Skipping malformed line " + (i + 1) + ": " + line);
+                System.err.println(ConsoleColor.orange("Skipping malformed line " + (i + 1) + ": " + line));
                 continue;
             }
 

@@ -80,12 +80,13 @@ public final class KlineCsvStore {
                 try {
                     return Long.parseLong(comma < 0 ? line : line.substring(0, comma));
                 } catch (NumberFormatException e) {
-                    System.err.println("Skipping malformed line " + (i + 1) + " in " + csvPath + ": " + line);
+                    System.err.println(ConsoleColor.orange(
+                            "Skipping malformed line " + (i + 1) + " in " + csvPath + ": " + line));
                 }
             }
             return -1;
         } catch (IOException e) {
-            System.err.println("Error reading " + csvPath + ": " + e.getMessage());
+            System.err.println(ConsoleColor.orange("Error reading " + csvPath + ": " + e.getMessage()));
             return -1;
         }
     }
@@ -105,7 +106,8 @@ public final class KlineCsvStore {
             }
             String[] f = line.split(",");
             if (f.length < 7) {
-                System.err.println("Skipping malformed line " + (i + 1) + " in " + csvPath + ": " + line);
+                System.err.println(ConsoleColor.orange(
+                        "Skipping malformed line " + (i + 1) + " in " + csvPath + ": " + line));
                 continue;
             }
             try {
@@ -119,7 +121,8 @@ public final class KlineCsvStore {
                         Long.parseLong(f[6])
                 ));
             } catch (NumberFormatException e) {
-                System.err.println("Skipping malformed line " + (i + 1) + " in " + csvPath + ": " + line);
+                System.err.println(ConsoleColor.orange(
+                        "Skipping malformed line " + (i + 1) + " in " + csvPath + ": " + line));
             }
         }
         return result;

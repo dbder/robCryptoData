@@ -1,5 +1,6 @@
 package nl.debo.cryptodata.tools;
 
+import nl.debo.cryptodata.utils.ConsoleColor;
 import nl.debo.cryptodata.utils.XmlUtil;
 
 import java.nio.charset.StandardCharsets;
@@ -64,9 +65,9 @@ public final class XslxPrinter {
             writeEntry(zipOut, "xl/worksheets/sheet1.xml", sheetXml(results));
             writeEntry(zipOut, "xl/worksheets/sheet2.xml", newsSheetXml(results));
 
-            System.out.println("Successfully generated XLSX report: " + xlsxPath);
+            System.out.println(ConsoleColor.green("Successfully generated XLSX report: " + xlsxPath));
         } catch (Exception e) {
-            System.err.println("Error generating XLSX file: " + e.getMessage());
+            System.err.println(ConsoleColor.orange("Error generating XLSX file: " + e.getMessage()));
         }
     }
 

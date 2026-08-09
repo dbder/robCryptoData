@@ -1,6 +1,7 @@
 package nl.debo.cryptodata;
 
 import nl.debo.cryptodata.tools.*;
+import nl.debo.cryptodata.utils.ConsoleColor;
 import nl.debo.cryptodata.utils.CsvUtil;
 import nl.debo.cryptodata.utils.FileUtil;
 
@@ -99,6 +100,10 @@ public final class CryptoAnalysis {
                 .filter(s -> !s.isEmpty() && !s.startsWith("#"))
                 .toList();
 
+        System.out.println(ConsoleColor.green(
+                "Crypto analysis started: " + activeSymbols.size() + " symbols x "
+                        + intervals.size() + " intervals"));
+
         // One news lookup per base coin, shared by all interval rows.
         var newsClient = new NewsClient();
         Map<String, String> newsByCoin = newsClient.fetchLatestHeadlines(
@@ -120,7 +125,8 @@ public final class CryptoAnalysis {
                                                         results.add(row);
                                                     }), executor)
                                     .exceptionally(e -> {
-                                        System.err.println("Error processing symbol " + symbol + " (" + interval + "): " + e.getMessage());
+                                        System.err.println(ConsoleColor.orange(
+                                                "Error processing symbol " + symbol + " (" + interval + "): " + e.getMessage()));
                                         return null;
                                     })))
                     .toList();
@@ -130,6 +136,9 @@ public final class CryptoAnalysis {
 
         CsvUtil.appendResultRows(csvPath, results);
         XslxPrinter.write(xlsxPath, dateStr, results);
+
+        System.out.println(ConsoleColor.green(
+                "Crypto analysis finished: " + results.size() + " rows -> " + csvPath + " and " + xlsxPath));
     }
 
     private static void printRow(ResultRow row) {

@@ -2,6 +2,7 @@ package nl.debo.cryptodata;
 
 import nl.debo.cryptodata.tools.BitvavoClient;
 import nl.debo.cryptodata.tools.Kline;
+import nl.debo.cryptodata.utils.ConsoleColor;
 import nl.debo.cryptodata.utils.FileUtil;
 import nl.debo.cryptodata.utils.KlineCsvStore;
 
@@ -63,6 +64,10 @@ public final class KlineHistoryImportBitvavo {
 
         Path klinesDir = appDir.resolve("output/klines-bitvavo");
 
+        System.out.println(ConsoleColor.green(
+                "Bitvavo kline history import started: " + activeMarkets.size() + " markets x "
+                        + INTERVALS.size() + " intervals -> " + klinesDir));
+
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<CompletableFuture<Void>> futures = activeMarkets.stream()
                     .flatMap(market -> INTERVALS.stream().map(interval ->
@@ -73,6 +78,8 @@ public final class KlineHistoryImportBitvavo {
 
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
         }
+
+        System.out.println(ConsoleColor.green("Bitvavo kline history import finished."));
     }
 
     /**
@@ -108,7 +115,8 @@ public final class KlineHistoryImportBitvavo {
             int imported = KlineCsvStore.appendNewKlines(csvPath, closed);
             System.out.println(market + " " + interval + ": +" + imported + " candles");
         } catch (Exception e) {
-            System.err.println("Error importing " + market + " (" + interval + "): " + e.getMessage());
+            System.err.println(ConsoleColor.orange(
+                    "Error importing " + market + " (" + interval + "): " + e.getMessage()));
         }
     }
 
@@ -128,8 +136,8 @@ public final class KlineHistoryImportBitvavo {
                 if (attempt >= MAX_ATTEMPTS || (message != null && message.contains("HTTP 4") && !message.contains("HTTP 429"))) {
                     throw e;
                 }
-                System.err.println(market + " (" + interval + "): " + message
-                        + " - retrying in " + RETRY_PAUSE.toSeconds() + "s");
+                System.err.println(ConsoleColor.orange(market + " (" + interval + "): " + message
+                        + " - retrying in " + RETRY_PAUSE.toSeconds() + "s"));
                 Thread.sleep(RETRY_PAUSE);
             }
         }

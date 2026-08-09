@@ -2,6 +2,7 @@ package nl.debo.cryptodata;
 
 import nl.debo.cryptodata.tools.BinanceClient;
 import nl.debo.cryptodata.tools.Kline;
+import nl.debo.cryptodata.utils.ConsoleColor;
 import nl.debo.cryptodata.utils.FileUtil;
 import nl.debo.cryptodata.utils.KlineCsvStore;
 
@@ -55,6 +56,10 @@ public final class KlineHistoryImport {
 
         Path klinesDir = appDir.resolve("output/klines");
 
+        System.out.println(ConsoleColor.green(
+                "Binance kline history import started: " + activeSymbols.size() + " symbols x "
+                        + INTERVALS.size() + " intervals -> " + klinesDir));
+
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<CompletableFuture<Void>> futures = activeSymbols.stream()
                     .flatMap(symbol -> INTERVALS.stream().map(interval ->
@@ -65,6 +70,8 @@ public final class KlineHistoryImport {
 
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
         }
+
+        System.out.println(ConsoleColor.green("Binance kline history import finished."));
     }
 
     /**
@@ -95,7 +102,8 @@ public final class KlineHistoryImport {
 
             System.out.println(symbol + " " + interval + ": +" + imported + " candles");
         } catch (Exception e) {
-            System.err.println("Error importing " + symbol + " (" + interval + "): " + e.getMessage());
+            System.err.println(ConsoleColor.orange(
+                    "Error importing " + symbol + " (" + interval + "): " + e.getMessage()));
         } finally {
             CONCURRENT_IMPORTS.release();
         }
@@ -116,8 +124,8 @@ public final class KlineHistoryImport {
                 if (attempt >= MAX_ATTEMPTS || (message != null && message.contains("HTTP 4") && !message.contains("HTTP 429"))) {
                     throw e;
                 }
-                System.err.println(symbol + " (" + interval + "): " + message
-                        + " - retrying in " + RETRY_PAUSE.toSeconds() + "s");
+                System.err.println(ConsoleColor.orange(symbol + " (" + interval + "): " + message
+                        + " - retrying in " + RETRY_PAUSE.toSeconds() + "s"));
                 Thread.sleep(RETRY_PAUSE);
             }
         }
