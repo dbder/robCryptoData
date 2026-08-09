@@ -35,7 +35,8 @@ import java.util.concurrent.Executors;
  */
 public final class KlineHistoryImportBitvavo {
 
-    private static final List<String> INTERVALS = List.of("1d", "1W", "1M");
+    private static final List<String> INTERVALS =
+            List.of("1h", "2h", "4h", "6h", "8h", "12h", "1d", "1W", "1M");
 
     /** Bitvavo's maximum candles per request. */
     private static final int PAGE_LIMIT = 1440;
