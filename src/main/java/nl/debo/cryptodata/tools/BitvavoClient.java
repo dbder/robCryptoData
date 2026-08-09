@@ -14,7 +14,7 @@ public final class BitvavoClient implements KlineSource {
     private static final String BASE_URL =
             "https://api.bitvavo.com/v2";
 
-    private final JsonHttp http = new JsonHttp("Bitvavo API");
+    private final JsonHttp http = new JsonHttp("Bitvavo API", new BitvavoRateLimiter());
 
     @Override
     public CompletableFuture<List<Kline>> getKlinesAsync(
