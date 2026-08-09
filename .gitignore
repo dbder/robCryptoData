@@ -3,6 +3,7 @@ output/*
 !output/README.md
 !output/klines/
 !output/klines-bitvavo/
+!output/coinanalysis/
 .idea/
 .claude/
 bitvavo.properties
