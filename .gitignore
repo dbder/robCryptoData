@@ -5,3 +5,4 @@ output/*
 !output/klines-bitvavo/
 .idea/
 .claude/
+bitvavo.properties

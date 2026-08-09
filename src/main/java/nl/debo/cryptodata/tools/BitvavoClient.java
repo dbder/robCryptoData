@@ -8,7 +8,9 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public final class BitvavoClient implements KlineSource {
@@ -50,6 +52,31 @@ public final class BitvavoClient implements KlineSource {
         );
 
         return http.getJson(uri).thenApply(root -> parseKlines(root, interval));
+    }
+
+    /**
+     * All market prices in one call: market (e.g. {@code "BTC-EUR"}) to last
+     * traded price. Markets without a price yet are omitted.
+     */
+    public CompletableFuture<Map<String, Double>> getTickerPricesAsync() {
+        var uri = URI.create(BASE_URL + "/ticker/price");
+        return http.getJson(uri).thenApply(BitvavoClient::parseTickerPrices);
+    }
+
+    private static Map<String, Double> parseTickerPrices(JsonNode root) {
+        var result = new HashMap<String, Double>();
+        for (JsonNode node : root) {
+            String market = node.path("market").asText();
+            String price = node.path("price").asText("");
+            if (!market.isEmpty() && !price.isEmpty()) {
+                try {
+                    result.put(market, Double.parseDouble(price));
+                } catch (NumberFormatException ignored) {
+                    // market without a parseable price: skip
+                }
+            }
+        }
+        return result;
     }
 
     private static List<Kline> parseKlines(JsonNode root, String interval) {

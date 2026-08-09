@@ -9,9 +9,11 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Supplier;
 
 /**
  * Small async HTTP-to-JSON helper shared by the exchange clients: virtual
@@ -54,18 +56,28 @@ public final class JsonHttp {
      * Executes an async GET request and parses the response body as JSON.
      */
     public CompletableFuture<JsonNode> getJson(URI uri) {
-        return CompletableFuture.supplyAsync(() -> fetch(uri), executor);
+        return getJson(uri, Map::of);
     }
 
-    private JsonNode fetch(URI uri) {
-        var request = HttpRequest.newBuilder()
-                .uri(uri)
-                .timeout(TIMEOUT)
-                .GET()
-                .build();
+    /**
+     * Like {@link #getJson(URI)} but with extra request headers, recomputed on
+     * every attempt so time-sensitive values (request signatures) stay fresh
+     * across rate-limit retries.
+     */
+    public CompletableFuture<JsonNode> getJson(URI uri, Supplier<Map<String, String>> headers) {
+        return CompletableFuture.supplyAsync(() -> fetch(uri, headers), executor);
+    }
 
+    private JsonNode fetch(URI uri, Supplier<Map<String, String>> headers) {
         try {
             for (int attempt = 1; ; attempt++) {
+                var builder = HttpRequest.newBuilder()
+                        .uri(uri)
+                        .timeout(TIMEOUT)
+                        .GET();
+                headers.get().forEach(builder::header);
+                var request = builder.build();
+
                 throttle.beforeRequest();
                 HttpResponse<String> response =
                         httpClient.send(request, HttpResponse.BodyHandlers.ofString());
