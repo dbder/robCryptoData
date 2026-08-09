@@ -60,7 +60,7 @@ public final class PredictionBacktest {
     public static void main(String[] args) throws Exception {
         Path appDir = FileUtil.applicationDir();
         List<String> symbols = FileUtil.readLinesWithFallback(
-                CryptoAnalysis.class,
+                CryptoAnalysisBinance.class,
                 "symbols",
                 appDir.resolve("symbols"),
                 Path.of("src/main/resources/nl/debo/cryptodata/symbols"),

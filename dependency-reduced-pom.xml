@@ -34,7 +34,7 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.target>25</maven.compiler.target>
-    <main.class>nl.debo.cryptodata.CryptoAnalysis</main.class>
+    <main.class>nl.debo.cryptodata.CryptoAnalysisBinance</main.class>
     <maven.compiler.source>25</maven.compiler.source>
   </properties>
 </project>

@@ -1,6 +1,6 @@
 package nl.debo.cryptodata.tools;
 
-import nl.debo.cryptodata.CryptoAnalysis;
+import nl.debo.cryptodata.CryptoAnalysisBinance;
 import nl.debo.cryptodata.utils.CsvUtil;
 
 import java.nio.file.Files;
@@ -10,7 +10,7 @@ import java.util.List;
 /**
  * Small runnable harness that exercises {@link XslxPrinter} with real data.
  *
- * <p>It reads a CSV produced by {@link CryptoAnalysis} (default
+ * <p>It reads a CSV produced by {@link CryptoAnalysisBinance} (default
  * {@code data2026-08-03.csv}), turns every line into a
  * {@link ResultRow} and renders the styled workbook, so the
  * spreadsheet layout can be inspected without hitting the live Binance API.

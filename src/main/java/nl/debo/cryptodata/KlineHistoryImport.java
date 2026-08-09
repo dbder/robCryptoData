@@ -22,7 +22,7 @@ import java.util.concurrent.Semaphore;
  * backfilled retroactively; the still-open candle is never written.
  *
  * <p>Run directly from the IDE; the jar's default main class remains
- * {@link CryptoAnalysis}.</p>
+ * {@link CryptoAnalysisBinance}.</p>
  */
 public final class KlineHistoryImport {
 
@@ -41,7 +41,7 @@ public final class KlineHistoryImport {
         var client = new BinanceClient();
         Path appDir = FileUtil.applicationDir();
         List<String> symbols = FileUtil.readLinesWithFallback(
-                CryptoAnalysis.class,
+                CryptoAnalysisBinance.class,
                 "symbols",
                 appDir.resolve("symbols"),
                 Path.of("src/main/resources/nl/debo/cryptodata/symbols"),

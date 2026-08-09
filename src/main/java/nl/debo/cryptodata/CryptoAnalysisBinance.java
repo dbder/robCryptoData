@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
  * RSI / Stochastic RSI / MACD indicators, looks up recent market news per
  * coin and writes the results as CSV, ODS and XLSX reports.
  */
-public final class CryptoAnalysis {
+public final class CryptoAnalysisBinance {
 
     private static final int RSI_PERIOD = 14;
     private static final int STOCH_RSI_PERIOD = 14;
@@ -43,7 +43,7 @@ public final class CryptoAnalysis {
 
     private static final List<String> INTERVALS = List.of("1h", "1d", "1w", "1M");
 
-    private CryptoAnalysis() {
+    private CryptoAnalysisBinance() {
     }
 
     public static void main(String[] args) throws Exception {
@@ -57,7 +57,7 @@ public final class CryptoAnalysis {
 
         Path appDir = FileUtil.applicationDir();
         List<String> symbols = FileUtil.readLinesWithFallback(
-                CryptoAnalysis.class,
+                CryptoAnalysisBinance.class,
                 "symbols",
                 appDir.resolve("symbols"),
                 Path.of("src/main/resources/nl/debo/cryptodata/symbols"),
@@ -77,7 +77,7 @@ public final class CryptoAnalysis {
         // One news lookup per base coin, shared by all interval rows.
         var newsClient = new NewsClient();
         Map<String, String> newsByCoin = newsClient.fetchLatestHeadlines(
-                activeSymbols.stream().map(CryptoAnalysis::baseAsset).collect(Collectors.toSet()),
+                activeSymbols.stream().map(CryptoAnalysisBinance::baseAsset).collect(Collectors.toSet()),
                 NEWS_MAX_AGE);
 
         List<ResultRow> results = Collections.synchronizedList(new ArrayList<>());
