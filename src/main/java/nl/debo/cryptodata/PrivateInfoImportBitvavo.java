@@ -58,7 +58,7 @@ import java.util.concurrent.CompletionException;
  * key suffices) — see {@link BitvavoCredentials}.
  *
  * <p>Run directly from the IDE; the jar's default main class remains
- * {@link CryptoAnalysisBinance}.</p>
+ * {@link CryptoAnalysisBitvavo}.</p>
  */
 public final class PrivateInfoImportBitvavo {
 

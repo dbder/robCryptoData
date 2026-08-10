@@ -1,6 +1,5 @@
-package nl.debo.cryptodata;
+package nl.debo.cryptodata.tools;
 
-import nl.debo.cryptodata.tools.*;
 import nl.debo.cryptodata.utils.ConsoleColor;
 import nl.debo.cryptodata.utils.CsvUtil;
 import nl.debo.cryptodata.utils.FileUtil;

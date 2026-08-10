@@ -2,6 +2,16 @@
 
 Hier houden we bij wat er verandert in het project.
 
+## [9] - 2026-08-11
+
+### Weggehaald
+- Alle Binance-code — we gaan verder met alleen Bitvavo. Weg zijn `CryptoAnalysisBinance`, `KlineHistoryImport` (de Binance-kline-import), `BinanceClient` en de resources `symbols` en `notavailablesymbols`. De standaard main class van de jar is nu `CryptoAnalysisBitvavo`.
+
+### Veranderd
+- `PredictionBacktest` draait nu op de Bitvavo-data: symbolen uit `symbols-bitvavo` en dagcandles uit `output/klines-bitvavo/` (het rekende al met Bitvavo-fees). Geverifieerd: 344 markten geëvalueerd, 95 overgeslagen wegens te weinig historie.
+- `TestXslxPrinter` leest standaard het Bitvavo-rapport van vandaag (`output/data-bitvavo<datum>.csv`).
+- `PairSymbols` blijft beide symboolformaten begrijpen: het aaneengeschreven formaat (`SOLEUR`) komt nog voor in oude rapport-CSV's uit de verwijderde Binance-pijplijn.
+
 ## [8] - 2026-08-10
 
 ### Nieuw

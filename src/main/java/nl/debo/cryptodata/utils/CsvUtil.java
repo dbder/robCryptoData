@@ -1,6 +1,6 @@
 package nl.debo.cryptodata.utils;
 
-import nl.debo.cryptodata.CryptoAnalysisBinance;
+import nl.debo.cryptodata.tools.CryptoAnalysis;
 import nl.debo.cryptodata.tools.ResultRow;
 
 import java.io.IOException;
@@ -15,7 +15,7 @@ import java.util.Locale;
 /**
  * Reads and writes the
  * {@code symbol,interval,begin,time,close,rsi,stochRsi,k,d,macd,macdSignal,macdHistogram,madr,macdStat,news}
- * CSV produced by {@link CryptoAnalysisBinance}. The news headline is deliberately
+ * CSV produced by {@link CryptoAnalysis}. The news headline is deliberately
  * the last column: it may contain commas, so it is parsed with a field limit
  * instead of quoting.
  */

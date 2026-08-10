@@ -12,7 +12,7 @@
         <maven.compiler.source>25</maven.compiler.source>
         <maven.compiler.target>25</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <main.class>nl.debo.cryptodata.CryptoAnalysisBinance</main.class>
+        <main.class>nl.debo.cryptodata.CryptoAnalysisBitvavo</main.class>
     </properties>
 
     <dependencies>

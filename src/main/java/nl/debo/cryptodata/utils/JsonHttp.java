@@ -36,7 +36,7 @@ public final class JsonHttp {
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
     /**
-     * @param apiName used in error messages, e.g. {@code "Binance API"}
+     * @param apiName used in error messages, e.g. {@code "Bitvavo API"}
      */
     public JsonHttp(String apiName) {
         this(apiName, RequestThrottle.NONE);

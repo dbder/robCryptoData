@@ -18,12 +18,12 @@ import java.util.concurrent.Executors;
 
 /**
  * Entry point: downloads candlestick history for every Bitvavo market/interval
- * combination into {@code output/klines-bitvavo/} (one CSV per combination), the
- * Bitvavo counterpart of {@link KlineHistoryImport}. The first run backfills
- * from each market's first candle; later runs append only the candles newer
- * than the last saved one. The still-open candle is never written.
+ * combination into {@code output/klines-bitvavo/} (one CSV per combination).
+ * The first run backfills from each market's first candle; later runs append
+ * only the candles newer than the last saved one. The still-open candle is
+ * never written.
  *
- * <p>Unlike Binance, Bitvavo's {@code limit} keeps the newest candles of the
+ * <p>Bitvavo's {@code limit} keeps the newest candles of the
  * requested range, so history is paged <em>backwards</em>: the {@code end}
  * bound walks from now towards the last saved candle, and the collected pages
  * are appended chronologically in one write. Requests are paced by the
@@ -31,7 +31,7 @@ import java.util.concurrent.Executors;
  * concurrency bound is needed here.
  *
  * <p>Run directly from the IDE; the jar's default main class remains
- * {@link CryptoAnalysisBinance}.</p>
+ * {@link CryptoAnalysisBitvavo}.</p>
  */
 public final class KlineHistoryImportBitvavo {
 

@@ -96,7 +96,7 @@ public final class BitvavoClient implements KlineSource {
             ));
         }
 
-        // Bitvavo returns newest first; Binance (and the analysis code) expect oldest first.
+        // Bitvavo returns newest first; the analysis code expects oldest first.
         Collections.reverse(result);
 
         return result;

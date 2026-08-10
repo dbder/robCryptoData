@@ -4,8 +4,9 @@ import java.util.List;
 
 /**
  * Parses exchange pair symbols in the two formats used in this project:
- * dash-separated Bitvavo markets ({@code "SOL-EUR"}) and concatenated
- * Binance symbols ({@code "SOLEUR"}, {@code "SOLUSDT"}).
+ * dash-separated Bitvavo markets ({@code "SOL-EUR"}) and legacy concatenated
+ * symbols ({@code "SOLEUR"}, {@code "SOLUSDT"}) that still occur in older
+ * report CSVs from the removed Binance pipeline.
  */
 public final class PairSymbols {
 

@@ -1,6 +1,7 @@
 package nl.debo.cryptodata;
 
 import nl.debo.cryptodata.tools.BitvavoClient;
+import nl.debo.cryptodata.tools.CryptoAnalysis;
 import nl.debo.cryptodata.tools.PairSymbols;
 
 import java.util.List;

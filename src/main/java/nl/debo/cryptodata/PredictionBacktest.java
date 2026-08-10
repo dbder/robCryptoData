@@ -25,7 +25,7 @@ import java.util.function.Function;
 
 /**
  * Entry point: walk-forward backtest of next-day direction predictions on
- * the daily candles saved by {@link KlineHistoryImport}. Per symbol, a
+ * the daily candles saved by {@link KlineHistoryImportBitvavo}. Per symbol, a
  * logistic-regression model is compared against two baselines ("always up"
  * and "same direction as yesterday"); results go to the console and to
  * {@code output/predictions_<date>.csv}. Run directly from the IDE.
@@ -60,11 +60,11 @@ public final class PredictionBacktest {
     public static void main(String[] args) throws Exception {
         Path appDir = FileUtil.applicationDir();
         List<String> symbols = FileUtil.readLinesWithFallback(
-                CryptoAnalysisBinance.class,
-                "symbols",
-                appDir.resolve("symbols"),
-                Path.of("src/main/resources/nl/debo/cryptodata/symbols"),
-                Path.of("symbols")
+                PredictionBacktest.class,
+                "symbols-bitvavo",
+                appDir.resolve("symbols-bitvavo"),
+                Path.of("src/main/resources/nl/debo/cryptodata/symbols-bitvavo"),
+                Path.of("symbols-bitvavo")
         );
 
         List<String> activeSymbols = symbols.stream()
@@ -83,7 +83,7 @@ public final class PredictionBacktest {
         var reports = new ArrayList<SymbolReport>();
         int skipped = 0;
         for (String symbol : activeSymbols) {
-            Path csvPath = appDir.resolve("output/klines/" + symbol + "_" + INTERVAL + ".csv");
+            Path csvPath = appDir.resolve("output/klines-bitvavo/" + symbol + "_" + INTERVAL + ".csv");
             if (!Files.exists(csvPath)) {
                 System.err.println(symbol + ": no " + INTERVAL + " history, skipping");
                 skipped++;

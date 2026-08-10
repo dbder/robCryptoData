@@ -1,19 +1,19 @@
 package nl.debo.cryptodata.tools;
 
-import nl.debo.cryptodata.CryptoAnalysisBinance;
 import nl.debo.cryptodata.utils.CsvUtil;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
  * Small runnable harness that exercises {@link XslxPrinter} with real data.
  *
- * <p>It reads a CSV produced by {@link CryptoAnalysisBinance} (default
- * {@code data2026-08-03.csv}), turns every line into a
+ * <p>It reads a CSV produced by {@link CryptoAnalysis} (default
+ * {@code output/data-bitvavo<today>.csv}), turns every line into a
  * {@link ResultRow} and renders the styled workbook, so the
- * spreadsheet layout can be inspected without hitting the live Binance API.
+ * spreadsheet layout can be inspected without hitting the live exchange API.
  *
  * <p>The project has no test framework wired up, so this is a plain
  * {@code main} you can launch directly:
@@ -27,7 +27,9 @@ public final class TestXslxPrinter {
     }
 
     public static void main(String[] args) throws Exception {
-        var csvPath = Path.of(args.length > 0 ? args[0] : "data2026-08-03.csv");
+        var csvPath = Path.of(args.length > 0
+                ? args[0]
+                : "output/data-bitvavo" + LocalDate.now() + ".csv");
 
         if (!Files.exists(csvPath)) {
             System.err.println("CSV not found: " + csvPath.toAbsolutePath());
