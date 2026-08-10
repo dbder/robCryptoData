@@ -2,6 +2,11 @@
 
 Hier houden we bij wat er verandert in het project.
 
+## [7] - 2026-08-10
+
+### Nieuw
+- `PrivateInfoImportBitvavo` houdt EUR-stortingen en -opnames (van/naar externe rekening) bij in een blijvend grootboek (`output/balance-bitvavo/eur-transfers.csv`, nieuw `TransferCsvStore`) en toont "winst sinds start": de eerste snapshot geldt als startsaldo, latere EUR-transfers worden opgesomd en verrekend zodat inleg niet als winst meetelt.
+
 ## [6] - 2026-08-09
 
 ### Nieuw

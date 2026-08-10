@@ -9,6 +9,8 @@ import nl.debo.cryptodata.utils.BalanceCsvStore;
 import nl.debo.cryptodata.utils.BalanceCsvStore.SnapshotRow;
 import nl.debo.cryptodata.utils.ConsoleColor;
 import nl.debo.cryptodata.utils.FileUtil;
+import nl.debo.cryptodata.utils.TransferCsvStore;
+import nl.debo.cryptodata.utils.TransferCsvStore.TransferRow;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -31,6 +33,14 @@ import java.util.TreeMap;
  * drive the change columns and the 24h/7d/30d portfolio stats, so those fill
  * in as the tool is run over time. Net invested and overall P/L are computed
  * from the account's EUR deposit and withdrawal history.
+ *
+ * <p>EUR deposits and withdrawals — the fiat flows from and to an external
+ * source such as the bank account — are merged into a persistent ledger
+ * ({@code output/balance-bitvavo/eur-transfers.csv}) so they stay on record
+ * even after they age out of the API's 500-entry history window. The first
+ * snapshot ever taken acts as the starting balance; EUR transfers after that
+ * moment are listed and netted out, giving a profit-since-start figure that
+ * is not distorted by money moved in or out.</p>
  *
  * <p>Requires a {@code bitvavo.properties} file (gitignored, read-only API
  * key suffices) — see {@link BitvavoCredentials}.
@@ -92,11 +102,18 @@ public final class PrivateInfoImportBitvavo {
         List<SnapshotRow> history = BalanceCsvStore.readAll(csvPath);
         BalanceCsvStore.append(csvPath, rows);
 
+        Path transfersPath =
+                FileUtil.applicationDir().resolve("output/balance-bitvavo/eur-transfers.csv");
+        List<TransferRow> ledger =
+                TransferCsvStore.merge(transfersPath, toEurTransferRows(deposits, withdrawals));
+
         printBalanceTable(rows, history);
         printHistoryStats(now, totalValue(rows), history);
         printProfitAndLoss(totalValue(rows), deposits, withdrawals);
+        printSinceStart(totalValue(rows), history, ledger);
 
         System.out.println(ConsoleColor.green("Snapshot appended to " + csvPath));
+        System.out.println(ConsoleColor.green("Transfer ledger updated at " + transfersPath));
     }
 
     /**
@@ -270,6 +287,90 @@ public final class PrivateInfoImportBitvavo {
         warnIgnoredCrypto(withdrawals, "withdrawals");
         warnTruncated(deposits, "depositHistory");
         warnTruncated(withdrawals, "withdrawalHistory");
+    }
+
+    /**
+     * Only EUR transfers make it into the ledger: those are the fiat flows
+     * from and to an external source (the bank account). Crypto deposits and
+     * withdrawals are out of scope here.
+     */
+    private static List<TransferRow> toEurTransferRows(
+            List<Transfer> deposits,
+            List<Transfer> withdrawals
+    ) {
+        var rows = new ArrayList<TransferRow>();
+        for (Transfer t : deposits) {
+            if (t.symbol().equals("EUR")) {
+                rows.add(new TransferRow(t.timestamp(), "deposit",
+                        t.symbol(), t.amount(), t.fee(), t.status()));
+            }
+        }
+        for (Transfer t : withdrawals) {
+            if (t.symbol().equals("EUR")) {
+                rows.add(new TransferRow(t.timestamp(), "withdrawal",
+                        t.symbol(), t.amount(), t.fee(), t.status()));
+            }
+        }
+        return rows;
+    }
+
+    /**
+     * Profit measured from the first snapshot ever taken (the starting
+     * balance). EUR moved in or out after that moment is listed and netted
+     * out of the profit, so a deposit does not show up as gains and a
+     * withdrawal not as losses. Transfers from before the starting snapshot
+     * are already part of the starting balance and are skipped.
+     */
+    private static void printSinceStart(
+            double total,
+            List<SnapshotRow> history,
+            List<TransferRow> ledger
+    ) {
+        System.out.println();
+        System.out.println("Profit since tracking start");
+        var totals = totalsByTimestamp(history);
+        if (totals.isEmpty()) {
+            System.out.printf(Locale.US,
+                    "  starting balance set to %,.2f EUR — profit fills in on later runs%n", total);
+            return;
+        }
+
+        long startTimestamp = totals.firstKey();
+        double startBalance = totals.firstEntry().getValue();
+        System.out.printf(Locale.US, "  %-28s %,.2f EUR%n",
+                "start (" + TIME_FORMAT.format(Instant.ofEpochMilli(startTimestamp)) + "):",
+                startBalance);
+
+        double netFlow = 0;
+        int flowCount = 0;
+        for (TransferRow t : ledger) {
+            if (t.timestamp() <= startTimestamp || t.status().contains("cancel")) {
+                continue;
+            }
+            // A withdrawal's fee also left the account.
+            double signed = t.type().equals("deposit")
+                    ? t.amount()
+                    : -(t.amount() + t.fee());
+            netFlow += signed;
+            flowCount++;
+            System.out.printf(Locale.US, "  %s  %-11s %s%n",
+                    TIME_FORMAT.format(Instant.ofEpochMilli(t.timestamp())), t.type(),
+                    colored(String.format(Locale.US, "%+,.2f EUR", signed), signed));
+        }
+        if (flowCount == 0) {
+            System.out.println("  no EUR deposits or withdrawals since start");
+        } else {
+            System.out.printf(Locale.US, "  %-28s %s%n", "net EUR flow since start:",
+                    colored(String.format(Locale.US, "%+,.2f EUR", netFlow), netFlow));
+        }
+
+        double profit = total - startBalance - netFlow;
+        double base = startBalance + Math.max(netFlow, 0);
+        String percent = base > 0
+                ? String.format(Locale.US, "%+.1f%%", 100 * profit / base)
+                : "n/a";
+        System.out.printf("  %-28s %s%n", "profit since start:",
+                colored(String.format(Locale.US, "%+,.2f EUR   %s", profit, percent), profit));
     }
 
     private static void warnIgnoredCrypto(List<Transfer> transfers, String kind) {
