@@ -2,6 +2,11 @@
 
 Hier houden we bij wat er verandert in het project.
 
+## [10] - 2026-08-11
+
+### Nieuw
+- Nieuw startpunt `CryptoAnalysisBitvavoFromLocal`: draait eerst de kline-import en bouwt daarna de rapporten uit de lokale candle-CSV's in plaats van de live API, via de nieuwe `LocalKlineSource` (uitvoer in `output/data-bitvavo-local<datum>.csv/.xlsx`). Omdat de pijplijn de laatste candle als "nog open" weggooit en de lokale opslag alleen gesloten candles bevat, plakt `LocalKlineSource` één synthetische open candle achteraan; zo blijft het candlevenster identiek aan het API-pad. Vergelijking van beide paden op dezelfde dag: 965 van 973 rijen exact gelijk; de 8 verschillen zitten bij illiquide markten (waar het API-pad de nieuwste gesloten candle verliest zolang de huidige candle nog geen trades heeft — het lokale pad is daar juist actueler) en bij HNT-EUR, waar Bitvavo zijn eigen historie heeft herzien (candles verwijderd en waardes aangepast t.o.v. de lokale opslag).
+
 ## [9] - 2026-08-11
 
 ### Weggehaald
