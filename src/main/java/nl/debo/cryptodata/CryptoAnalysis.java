@@ -143,9 +143,10 @@ public final class CryptoAnalysis {
 
     private static void printRow(ResultRow row) {
         System.out.printf(
-                "%s | %s | %s | Close: %.2f | RSI: %.2f | StochRSI: %.4f | K: %.4f | D: %.4f | MACD: %.4f | Signal: %.4f | Hist: %.4f | MADR: %.4f | MACDstat: %.4f%s%n",
+                "%s | %s | %s | %s | Close: %.2f | RSI: %.2f | StochRSI: %.4f | K: %.4f | D: %.4f | MACD: %.4f | Signal: %.4f | Hist: %.4f | MADR: %.4f | MACDstat: %.4f%s%n",
                 row.symbol(),
                 row.interval(),
+                row.begin(),
                 row.time(),
                 row.close(),
                 row.rsi(),

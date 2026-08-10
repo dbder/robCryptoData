@@ -11,6 +11,7 @@ package nl.debo.cryptodata.tools;
 public record ResultRow(
         String symbol,
         String interval,
+        String begin,
         String time,
         double close,
         double rsi,
@@ -27,7 +28,7 @@ public record ResultRow(
 
     /** Returns a copy of this row with the given news headline. */
     public ResultRow withNews(String news) {
-        return new ResultRow(symbol, interval, time, close, rsi, stochRsi, k, d,
+        return new ResultRow(symbol, interval, begin, time, close, rsi, stochRsi, k, d,
                 macd, macdSignal, macdHistogram, madr, macdStat, news);
     }
 

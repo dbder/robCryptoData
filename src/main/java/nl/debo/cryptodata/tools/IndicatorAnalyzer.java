@@ -1,5 +1,7 @@
 package nl.debo.cryptodata.tools;
 
+import nl.debo.cryptodata.utils.DutchDate;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -100,6 +102,7 @@ public final class IndicatorAnalyzer {
             return Optional.of(new ResultRow(
                     symbol,
                     interval,
+                    DutchDate.compact(closedKlines.get(i).openTime()),
                     time.toString(),
                     closedKlines.get(i).close(),
                     rsi.get(i),

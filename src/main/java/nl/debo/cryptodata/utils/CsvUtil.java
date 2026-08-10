@@ -14,16 +14,16 @@ import java.util.Locale;
 
 /**
  * Reads and writes the
- * {@code symbol,interval,time,close,rsi,stochRsi,k,d,macd,macdSignal,macdHistogram,madr,macdStat,news}
+ * {@code symbol,interval,begin,time,close,rsi,stochRsi,k,d,macd,macdSignal,macdHistogram,madr,macdStat,news}
  * CSV produced by {@link CryptoAnalysisBinance}. The news headline is deliberately
  * the last column: it may contain commas, so it is parsed with a field limit
  * instead of quoting.
  */
 public final class CsvUtil {
 
-    public static final String HEADER = "symbol,interval,time,close,rsi,stochRsi,k,d,macd,macdSignal,macdHistogram,madr,macdStat,news";
+    public static final String HEADER = "symbol,interval,begin,time,close,rsi,stochRsi,k,d,macd,macdSignal,macdHistogram,madr,macdStat,news";
 
-    private static final int FIELD_COUNT = 14;
+    private static final int FIELD_COUNT = 15;
 
     private CsvUtil() {
     }
@@ -46,9 +46,10 @@ public final class CsvUtil {
             for (var r : results) {
                 var csvLine = String.format(
                         Locale.US,
-                        "%s,%s,%s,%.2f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%s",
+                        "%s,%s,%s,%s,%.2f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%s",
                         r.symbol(),
                         r.interval(),
+                        r.begin(),
                         r.time(),
                         r.close(),
                         r.rsi(),
@@ -92,8 +93,24 @@ public final class CsvUtil {
                 continue;
             }
 
-            // Three file generations: news directly after macdHistogram,
-            // then with madr inserted, now with madr and macdStat. The
+            // The newest layout has the Dutch begin date at index 2 and the
+            // ISO time at index 3; every older layout has the numeric close
+            // at index 3. An old line whose news contains a comma also
+            // splits into 15 fields, so the layout is decided by parsing.
+            String begin = "";
+            if (!isNumeric(f[3])) {
+                begin = f[2];
+                var rest = new ArrayList<>(java.util.Arrays.asList(f));
+                rest.remove(2);
+                f = rest.toArray(String[]::new);
+            } else if (f.length == FIELD_COUNT) {
+                // Old layout with a comma inside the news: re-split so the
+                // whole headline stays in the last field.
+                f = line.split(",", FIELD_COUNT - 1);
+            }
+
+            // Three older generations: news directly after macdHistogram,
+            // then with madr inserted, then with madr and macdStat. The
             // 12-field case is ambiguous (madr or news?), so parse to decide.
             double madr = 0.5;
             double macdStat = 0.5;
@@ -116,6 +133,7 @@ public final class CsvUtil {
             rows.add(new ResultRow(
                     f[0],
                     f[1],
+                    begin,
                     f[2],
                     Double.parseDouble(f[3]),
                     Double.parseDouble(f[4]),
@@ -132,5 +150,14 @@ public final class CsvUtil {
         }
 
         return rows;
+    }
+
+    private static boolean isNumeric(String value) {
+        try {
+            Double.parseDouble(value);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 }

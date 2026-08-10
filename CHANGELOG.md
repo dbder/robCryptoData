@@ -2,6 +2,17 @@
 
 Hier houden we bij wat er verandert in het project.
 
+## [8] - 2026-08-10
+
+### Nieuw
+- `PrivateInfoImportBitvavo` toont per munt de aankoopprijs en de winst/het verlies in euro's: nieuwe kolommen AVG BUY (gewogen gemiddelde koopprijs), COST EUR (wat de huidige positie gekost heeft, inclusief handelskosten) en P/L EUR (verschil met de waarde van nu, groen/rood). De transactiehistorie komt per gehouden munt uit `GET /v2/trades` (nieuw in `BitvavoPrivateClient`) en wordt samengevoegd in een blijvend grootboek `output/balance-bitvavo/trades.csv` (nieuw `TradeCsvStore`), zodat de kostprijs bewaard blijft als transacties uit het 500-per-markt-API-venster vallen.
+- `CryptoAnalysis` heeft een Begin-kolom: de startdatum van de candle-periode in compacte Nederlandse vorm (bijv. `zo 9 aug '26`, weekcandle `ma 3 aug '26`), via het nieuwe `DutchDate` (nl-NL, UTC zodat de datum bij de candlegrenzen van de beurs past). Zichtbaar in de console, de CSV (kolom `begin` tussen `interval` en `time`) en het XLSX-rapport (kolom Begin tussen Interval en Time; de rood/groen-opmaak is een kolom meegeschoven).
+
+### Veranderd
+- De kolommen CHANGE en P/L EUR in het saldo-overzicht zijn breder en lijnen nu strak uit: tekst wordt eerst op kolombreedte uitgelijnd en daarna pas gekleurd, zodat de onzichtbare kleurcodes de uitlijning niet meer breken. Prijzen onder € 1 krijgen vier decimalen (bijv. VET `0.0041` in plaats van `0.00`).
+- Oudere analyse-CSV's (zonder `begin`-kolom) worden nog steeds ingelezen; het formaat wordt per regel herkend door te parsen, ook als een nieuwskop komma's bevat.
+- De CSV-lezers van snapshots, transfers en trades slaan header- en lege regels nu overal in het bestand over (handmatig bewerken kan ze verplaatsen) in plaats van alleen de eerste regel als header te behandelen.
+
 ## [7] - 2026-08-10
 
 ### Nieuw
