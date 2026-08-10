@@ -10,66 +10,62 @@ import java.util.LinkedHashMap;
 import java.util.List;
 
 /**
- * Reads and writes the deposit/withdrawal ledger CSV
- * ({@code timestamp,type,symbol,amount,fee,status}). The Bitvavo history
- * endpoints return at most the newest 500 entries, so each run merges what
- * the API returned into this file; entries that age out of the API window
- * stay on record here.
+ * Reads and writes the trade ledger CSV
+ * ({@code timestamp,market,id,side,amount,price,fee,feeCurrency}). The
+ * Bitvavo trades endpoint returns at most the newest 500 trades per market,
+ * so each run merges what the API returned into this file; trades that age
+ * out of the API window stay on record here.
  */
-public final class TransferCsvStore {
+public final class TradeCsvStore {
 
-    public static final String HEADER = "timestamp,type,symbol,amount,fee,status";
+    public static final String HEADER = "timestamp,market,id,side,amount,price,fee,feeCurrency";
 
-    /** One deposit or withdrawal; {@code type} is {@code deposit} or {@code withdrawal}. */
-    public record TransferRow(
+    /** One executed trade; {@code side} is {@code buy} or {@code sell}. */
+    public record TradeRow(
             long timestamp,
-            String type,
-            String symbol,
+            String market,
+            String id,
+            String side,
             double amount,
+            double price,
             double fee,
-            String status
+            String feeCurrency
     ) {
     }
 
-    private TransferCsvStore() {
+    private TradeCsvStore() {
     }
 
     /**
      * Merges {@code incoming} into the ledger and rewrites it sorted oldest
-     * first, returning the full merged list. A transfer is identified by
-     * timestamp, type, symbol and amount; a re-seen transfer replaces the
-     * stored one, so a status change (e.g. a withdrawal completing) is
-     * picked up instead of duplicated.
+     * first, returning the full merged list. A trade is identified by its
+     * exchange-assigned id, so re-fetched trades never duplicate.
      */
-    public static List<TransferRow> merge(Path csvPath, List<TransferRow> incoming)
-            throws IOException {
-        var byKey = new LinkedHashMap<String, TransferRow>();
-        for (TransferRow row : readAll(csvPath)) {
-            byKey.put(key(row), row);
+    public static List<TradeRow> merge(Path csvPath, List<TradeRow> incoming) throws IOException {
+        var byId = new LinkedHashMap<String, TradeRow>();
+        for (TradeRow row : readAll(csvPath)) {
+            byId.put(row.id(), row);
         }
-        for (TransferRow row : incoming) {
-            byKey.put(key(row), row);
+        for (TradeRow row : incoming) {
+            byId.put(row.id(), row);
         }
-        var merged = new ArrayList<>(byKey.values());
-        merged.sort(Comparator.comparingLong(TransferRow::timestamp));
+        var merged = new ArrayList<>(byId.values());
+        merged.sort(Comparator.comparingLong(TradeRow::timestamp));
         writeAll(csvPath, merged);
         return merged;
     }
 
-    private static String key(TransferRow row) {
-        return row.timestamp() + "|" + row.type() + "|" + row.symbol() + "|" + row.amount();
-    }
-
-    private static void writeAll(Path csvPath, List<TransferRow> rows) throws IOException {
+    private static void writeAll(Path csvPath, List<TradeRow> rows) throws IOException {
         if (csvPath.getParent() != null) {
             Files.createDirectories(csvPath.getParent());
         }
         try (var writer = Files.newBufferedWriter(csvPath, StandardCharsets.UTF_8)) {
             writer.write(HEADER);
             writer.newLine();
-            for (TransferRow row : rows) {
-                writer.write(row.timestamp() + "," + row.type() + "," + row.symbol()
-                        + "," + row.amount() + "," + row.fee() + "," + row.status());
+            for (TradeRow row : rows) {
+                writer.write(row.timestamp() + "," + row.market() + "," + row.id()
+                        + "," + row.side() + "," + row.amount() + "," + row.price()
+                        + "," + row.fee() + "," + row.feeCurrency());
                 writer.newLine();
             }
         }
@@ -81,31 +77,33 @@ public final class TransferCsvStore {
      * (hand editing can displace them); malformed lines are reported and
      * skipped.
      */
-    public static List<TransferRow> readAll(Path csvPath) throws IOException {
+    public static List<TradeRow> readAll(Path csvPath) throws IOException {
         if (!Files.exists(csvPath)) {
             return List.of();
         }
         var lines = Files.readAllLines(csvPath);
-        var result = new ArrayList<TransferRow>();
+        var result = new ArrayList<TradeRow>();
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i).strip();
             if (line.isEmpty() || line.equals(HEADER)) {
                 continue;
             }
             String[] f = line.split(",");
-            if (f.length < 6) {
+            if (f.length < 8) {
                 System.err.println(ConsoleColor.orange(
                         "Skipping malformed line " + (i + 1) + " in " + csvPath + ": " + line));
                 continue;
             }
             try {
-                result.add(new TransferRow(
+                result.add(new TradeRow(
                         Long.parseLong(f[0]),
                         f[1],
                         f[2],
-                        Double.parseDouble(f[3]),
+                        f[3],
                         Double.parseDouble(f[4]),
-                        f[5]
+                        Double.parseDouble(f[5]),
+                        Double.parseDouble(f[6]),
+                        f[7]
                 ));
             } catch (NumberFormatException e) {
                 System.err.println(ConsoleColor.orange(

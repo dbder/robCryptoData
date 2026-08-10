@@ -9,8 +9,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Authenticated Bitvavo REST endpoints (balance, deposit and withdrawal
- * history), the private counterpart of {@link BitvavoClient}. Every request
+ * Authenticated Bitvavo REST endpoints (balance, deposit/withdrawal history
+ * and trade history), the private counterpart of {@link BitvavoClient}. Every request
  * is signed with {@link BitvavoAuth}; the URI path and the signed path are
  * derived from the same string so they can never disagree.
  */
@@ -39,6 +39,22 @@ public final class BitvavoPrivateClient {
     public record Transfer(long timestamp, String symbol, double amount, double fee, String status) {
     }
 
+    /**
+     * One executed trade; {@code amount} in the base asset, {@code price} in
+     * the quote asset, {@code fee} in {@code feeCurrency} (EUR on EUR markets).
+     */
+    public record Trade(
+            long timestamp,
+            String id,
+            String market,
+            String side,
+            double amount,
+            double price,
+            double fee,
+            String feeCurrency
+    ) {
+    }
+
     /** All assets with a balance. GET /v2/balance. */
     public CompletableFuture<List<AssetBalance>> getBalanceAsync() {
         return getSigned("/balance").thenApply(BitvavoPrivateClient::parseBalances);
@@ -54,6 +70,12 @@ public final class BitvavoPrivateClient {
     public CompletableFuture<List<Transfer>> getWithdrawalHistoryAsync() {
         return getSigned("/withdrawalHistory?limit=" + HISTORY_LIMIT)
                 .thenApply(BitvavoPrivateClient::parseTransfers);
+    }
+
+    /** Newest-first executed trades for one market, at most {@link #HISTORY_LIMIT} entries. */
+    public CompletableFuture<List<Trade>> getTradeHistoryAsync(String market) {
+        return getSigned("/trades?market=" + market + "&limit=" + HISTORY_LIMIT)
+                .thenApply(BitvavoPrivateClient::parseTrades);
     }
 
     /**
@@ -73,6 +95,23 @@ public final class BitvavoPrivateClient {
                     node.path("symbol").asText(),
                     node.path("available").asDouble(0),
                     node.path("inOrder").asDouble(0)
+            ));
+        }
+        return result;
+    }
+
+    private static List<Trade> parseTrades(JsonNode root) {
+        var result = new ArrayList<Trade>();
+        for (JsonNode node : root) {
+            result.add(new Trade(
+                    node.path("timestamp").asLong(0),
+                    node.path("id").asText(),
+                    node.path("market").asText(),
+                    node.path("side").asText(),
+                    node.path("amount").asDouble(0),
+                    node.path("price").asDouble(0),
+                    node.path("fee").asDouble(0),
+                    node.path("feeCurrency").asText("EUR")
             ));
         }
         return result;

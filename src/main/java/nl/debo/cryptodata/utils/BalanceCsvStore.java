@@ -59,7 +59,8 @@ public final class BalanceCsvStore {
 
     /**
      * Parses all snapshot rows back, in file (chronological) order; an empty
-     * list if the file does not exist. The header line is skipped; malformed
+     * list if the file does not exist. Header and blank lines are skipped
+     * wherever they appear (hand editing can displace them); malformed
      * lines are reported and skipped.
      */
     public static List<SnapshotRow> readAll(Path csvPath) throws IOException {
@@ -68,9 +69,9 @@ public final class BalanceCsvStore {
         }
         var lines = Files.readAllLines(csvPath);
         var result = new ArrayList<SnapshotRow>();
-        for (int i = 1; i < lines.size(); i++) {
+        for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i).strip();
-            if (line.isEmpty()) {
+            if (line.isEmpty() || line.equals(HEADER)) {
                 continue;
             }
             String[] f = line.split(",");
