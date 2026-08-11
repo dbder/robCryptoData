@@ -78,7 +78,10 @@ public final class LocalKlineSource implements KlineSource {
         }
         List<Kline> klines = KlineCsvStore.readKlines(csvPath);
         if (klines.isEmpty()) {
-            throw new IllegalStateException("no candles in " + csvPath);
+            // No closed candles yet (e.g. a freshly listed market): behave
+            // like the API on a market without trades and return no candles,
+            // which the pipeline reports as "not enough data", not an error.
+            return List.of();
         }
         int from = Math.max(0, klines.size() - (limit - 1));
         var window = new ArrayList<>(klines.subList(from, klines.size()));

@@ -2,6 +2,14 @@
 
 Hier houden we bij wat er verandert in het project.
 
+## [11] - 2026-08-11
+
+### Veranderd
+- `LocalKlineSource` houdt de lokale candle-opslag nu zelf bij: geef hem een `KlineHistoryImporter` mee en elke aanvraag werkt eerst precies die ene markt/interval-combinatie bij — de CSV wordt bij het eerste gebruik aangemaakt en volledig gevuld, daarna alleen aangevuld met candles die sindsdien gesloten zijn, en als er nog niets nieuws gesloten kán zijn wordt de beurs helemaal niet bevraagd. Zonder importer blijft de bron read-only zoals voorheen.
+- `CryptoAnalysisBitvavoFromLocal` draait daardoor niet meer eerst de volledige kline-import (alle markten × 9 intervallen), maar ververst on demand alleen de combinaties die de analyse echt gebruikt (symbolen × 1d/1W/1M). Voor het verversen van de hele opslag blijft `KlineHistoryImportBitvavo` het startpunt.
+- Een markt zonder gesloten candles (bijv. het 1M-interval van een net genoteerde munt zoals QUID-EUR) is geen fout meer: de import maakt dan een CSV met alleen de kopregel aan (nieuw `KlineCsvStore.ensureCsv`, dat ook een leeg achtergebleven bestand van een afgebroken run repareert) en `LocalKlineSource` geeft nul candles terug — net als de API bij een markt zonder trades — zodat de pijplijn de rij stilletjes overslaat als "te weinig data".
+- `LocalKlineSource.getKlinesAsync` draait op een eigen virtual thread, omdat het bijwerken kan blokkeren op netwerk- en rate-limit-pauzes.
+
 ## [10] - 2026-08-11
 
 ### Nieuw

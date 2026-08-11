@@ -25,6 +25,23 @@ public final class KlineCsvStore {
     }
 
     /**
+     * Creates {@code csvPath} (and parent directories) with only the header
+     * row if it does not exist yet (or is zero bytes, e.g. from an aborted
+     * run), so a combination without closed candles still gets its store
+     * file. Files with content are left untouched.
+     */
+    public static void ensureCsv(Path csvPath) throws IOException {
+        if (Files.exists(csvPath) && Files.size(csvPath) > 0) {
+            return;
+        }
+        if (csvPath.getParent() != null) {
+            Files.createDirectories(csvPath.getParent());
+        }
+        Files.writeString(csvPath, HEADER + System.lineSeparator(), StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+    }
+
+    /**
      * Appends the candles that are newer than the last one already saved in
      * {@code csvPath}, creating the file (and parent directories) with a
      * header row if needed.
@@ -36,20 +53,13 @@ public final class KlineCsvStore {
         List<Kline> fresh = klines.stream()
                 .filter(k -> k.openTime() > last)
                 .toList();
+        ensureCsv(csvPath);
         if (fresh.isEmpty()) {
             return 0;
         }
 
-        if (csvPath.getParent() != null) {
-            Files.createDirectories(csvPath.getParent());
-        }
-        boolean needsHeader = !Files.exists(csvPath) || Files.size(csvPath) == 0;
         try (var writer = Files.newBufferedWriter(csvPath, StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
-            if (needsHeader) {
-                writer.write(HEADER);
-                writer.newLine();
-            }
             for (var k : fresh) {
                 writer.write(toCsvLine(k));
                 writer.newLine();
