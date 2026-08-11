@@ -12,6 +12,14 @@ import java.util.concurrent.CompletableFuture;
  * {@link KlineSource} that serves candles from the CSVs saved by the kline
  * history import instead of the exchange API.
  *
+ * <p>When constructed with a {@link KlineHistoryImporter} the source keeps
+ * the store fresh by itself: each request first runs an import for that
+ * market/interval, which creates the CSV on first use and appends any candles
+ * that closed since the last one saved. The importer skips the exchange
+ * request entirely when nothing new can exist yet, so up-to-date requests
+ * stay local. Without an importer the source is read-only and fails when the
+ * CSV is missing.
+ *
  * <p>The store holds only closed candles, while the API ends the series with
  * the currently open candle — which the analysis pipeline assumes and drops.
  * To keep both paths identical this source returns the newest
@@ -28,31 +36,54 @@ import java.util.concurrent.CompletableFuture;
 public final class LocalKlineSource implements KlineSource {
 
     private final Path klinesDir;
+    private final KlineHistoryImporter importer;
 
+    /** Read-only source: serves the CSVs as they are, fails when one is missing. */
     public LocalKlineSource(Path klinesDir) {
+        this(klinesDir, null);
+    }
+
+    /**
+     * Self-updating source: brings the CSV up to date through {@code importer}
+     * (creating it on first use) before serving each request.
+     */
+    public LocalKlineSource(Path klinesDir, KlineHistoryImporter importer) {
         this.klinesDir = klinesDir;
+        this.importer = importer;
     }
 
     @Override
     public CompletableFuture<List<Kline>> getKlinesAsync(String symbol, String interval, int limit) {
-        Path csvPath = klinesDir.resolve(symbol + "_" + interval + ".csv");
-        if (!Files.exists(csvPath)) {
-            return CompletableFuture.failedFuture(new IllegalStateException(
-                    "no local kline history at " + csvPath + " - run KlineHistoryImportBitvavo first"));
-        }
-        try {
-            List<Kline> klines = KlineCsvStore.readKlines(csvPath);
-            if (klines.isEmpty()) {
-                return CompletableFuture.failedFuture(new IllegalStateException(
-                        "no candles in " + csvPath));
+        // The update inside load() blocks on network and rate-limit pauses,
+        // so run it on its own virtual thread instead of the caller's.
+        var future = new CompletableFuture<List<Kline>>();
+        Thread.ofVirtual().start(() -> {
+            try {
+                future.complete(load(symbol, interval, limit));
+            } catch (Throwable e) {
+                future.completeExceptionally(e);
             }
-            int from = Math.max(0, klines.size() - (limit - 1));
-            var window = new ArrayList<>(klines.subList(from, klines.size()));
-            window.add(syntheticOpenCandle(window.getLast(), interval));
-            return CompletableFuture.completedFuture(window);
-        } catch (Exception e) {
-            return CompletableFuture.failedFuture(e);
+        });
+        return future;
+    }
+
+    private List<Kline> load(String symbol, String interval, int limit) throws Exception {
+        Path csvPath = klinesDir.resolve(symbol + "_" + interval + ".csv");
+        if (importer != null) {
+            importer.update(symbol, interval);
         }
+        if (!Files.exists(csvPath)) {
+            throw new IllegalStateException("no local kline history at " + csvPath
+                    + " - run KlineHistoryImportBitvavo first or construct this source with a KlineHistoryImporter");
+        }
+        List<Kline> klines = KlineCsvStore.readKlines(csvPath);
+        if (klines.isEmpty()) {
+            throw new IllegalStateException("no candles in " + csvPath);
+        }
+        int from = Math.max(0, klines.size() - (limit - 1));
+        var window = new ArrayList<>(klines.subList(from, klines.size()));
+        window.add(syntheticOpenCandle(window.getLast(), interval));
+        return window;
     }
 
     /**
