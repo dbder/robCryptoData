@@ -14,16 +14,17 @@ import java.util.Locale;
 
 /**
  * Reads and writes the
- * {@code symbol,interval,begin,time,close,rsi,stochRsi,k,d,macd,macdSignal,macdHistogram,madr,macdStat,news}
- * CSV produced by {@link CryptoAnalysis}. The news headline is deliberately
- * the last column: it may contain commas, so it is parsed with a field limit
- * instead of quoting.
+ * {@code symbol,interval,begin,time,close,rsi,stochRsi,k,d,macd,macdSignal,macdHistogram,madr,macdStat}
+ * CSV produced by {@link CryptoAnalysis}. Older files may end with a news
+ * headline column (possibly containing commas); it is parsed with a field
+ * limit and discarded.
  */
 public final class CsvUtil {
 
-    public static final String HEADER = "symbol,interval,begin,time,close,rsi,stochRsi,k,d,macd,macdSignal,macdHistogram,madr,macdStat,news";
+    public static final String HEADER = "symbol,interval,begin,time,close,rsi,stochRsi,k,d,macd,macdSignal,macdHistogram,madr,macdStat";
 
-    private static final int FIELD_COUNT = 15;
+    /** Widest historical layout: the current columns plus the old news column. */
+    private static final int MAX_FIELD_COUNT = 15;
 
     private CsvUtil() {
     }
@@ -46,7 +47,7 @@ public final class CsvUtil {
             for (var r : results) {
                 var csvLine = String.format(
                         Locale.US,
-                        "%s,%s,%s,%s,%.2f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%s",
+                        "%s,%s,%s,%s,%.2f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f",
                         r.symbol(),
                         r.interval(),
                         r.begin(),
@@ -60,8 +61,7 @@ public final class CsvUtil {
                         r.macdSignal(),
                         r.macdHistogram(),
                         r.madr(),
-                        r.macdStat(),
-                        r.news()
+                        r.macdStat()
                 );
                 writer.write(csvLine);
                 writer.newLine();
@@ -74,8 +74,9 @@ public final class CsvUtil {
     /**
      * Parses the CSV into {@link ResultRow} values. The first line
      * is treated as a header and skipped; malformed lines are reported and skipped.
-     * Older files without the MACD / news columns are accepted; missing
-     * numbers default to zero and missing news to an empty string.
+     * Older files are accepted: missing MACD numbers default to zero, missing
+     * madr/macdStat to the neutral 0.5, and the news column that older
+     * layouts end with is discarded.
      */
     public static List<ResultRow> readResultRows(Path csvPath) throws IOException {
         var rows = new ArrayList<ResultRow>();
@@ -87,46 +88,33 @@ public final class CsvUtil {
                 continue;
             }
 
-            String[] f = line.split(",", FIELD_COUNT);
+            String[] f = line.split(",", MAX_FIELD_COUNT);
             if (f.length < 8) {
                 System.err.println(ConsoleColor.orange("Skipping malformed line " + (i + 1) + ": " + line));
                 continue;
             }
 
-            // The newest layout has the Dutch begin date at index 2 and the
+            // Newer layouts have the Dutch begin date at index 2 and the
             // ISO time at index 3; every older layout has the numeric close
-            // at index 3. An old line whose news contains a comma also
-            // splits into 15 fields, so the layout is decided by parsing.
+            // at index 3. The layout is decided by parsing.
             String begin = "";
             if (!isNumeric(f[3])) {
                 begin = f[2];
                 var rest = new ArrayList<>(java.util.Arrays.asList(f));
                 rest.remove(2);
                 f = rest.toArray(String[]::new);
-            } else if (f.length == FIELD_COUNT) {
-                // Old layout with a comma inside the news: re-split so the
-                // whole headline stays in the last field.
-                f = line.split(",", FIELD_COUNT - 1);
             }
 
-            // Three older generations: news directly after macdHistogram,
-            // then with madr inserted, then with madr and macdStat. The
-            // 12-field case is ambiguous (madr or news?), so parse to decide.
+            // madr and macdStat, when present, are the numeric fields after
+            // macdHistogram. A non-numeric field there is the news column of
+            // an older layout; from that point on the rest of the line is
+            // news and is discarded.
             double madr = 0.5;
             double macdStat = 0.5;
-            String news = "";
-            if (f.length > 13) {
+            if (f.length > 11 && isNumeric(f[11])) {
                 madr = Double.parseDouble(f[11]);
-                macdStat = Double.parseDouble(f[12]);
-                news = f[13];
-            } else if (f.length > 12) {
-                madr = Double.parseDouble(f[11]);
-                news = f[12];
-            } else if (f.length > 11) {
-                try {
-                    madr = Double.parseDouble(f[11]);
-                } catch (NumberFormatException e) {
-                    news = f[11];
+                if (f.length > 12 && isNumeric(f[12])) {
+                    macdStat = Double.parseDouble(f[12]);
                 }
             }
 
@@ -144,8 +132,7 @@ public final class CsvUtil {
                     f.length > 9 ? Double.parseDouble(f[9]) : 0.0,
                     f.length > 10 ? Double.parseDouble(f[10]) : 0.0,
                     madr,
-                    macdStat,
-                    news
+                    macdStat
             ));
         }
 

@@ -4,7 +4,6 @@ import nl.debo.cryptodata.tools.BitvavoClient;
 import nl.debo.cryptodata.tools.CryptoAnalysis;
 import nl.debo.cryptodata.tools.KlineHistoryImporter;
 import nl.debo.cryptodata.tools.LocalKlineSource;
-import nl.debo.cryptodata.tools.PairSymbols;
 import nl.debo.cryptodata.utils.FileUtil;
 
 import java.nio.file.Path;
@@ -36,7 +35,6 @@ public final class CryptoAnalysisBitvavo {
                 new LocalKlineSource(klinesDir, new KlineHistoryImporter(new BitvavoClient(), klinesDir)),
                 "symbols-bitvavo",
                 INTERVALS,
-                PairSymbols::base,
                 "data-bitvavo-local"
         ).run();
     }

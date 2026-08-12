@@ -25,7 +25,6 @@ flowchart TD
     CSVSTORE --> LKS
     LKS -->|"newest 199 closed candles"| IA[IndicatorAnalyzer.latestRow]
     IA --> ROW[ResultRow: RSI, StochRSI, K, D,\nMACD, Signal, Histogram, MADR, MACDstat]
-    NEWS[NewsClient\nheadlines < 48h per base coin] --> ROW
     ROW --> OUT1[(data-bitvavo-local&lt;date&gt;.csv)]
     ROW --> OUT2[(data-bitvavo-local&lt;date&gt;.xlsx)]
 ```
@@ -63,9 +62,9 @@ have closed yet.
 
 Every symbol × interval combination is an independent task on a **virtual
 thread** (`Executors.newVirtualThreadPerTaskExecutor`). Results are collected
-in a synchronized list; ordering in the report is completion order, not input
-order. News is fetched **once per base coin** (e.g. `SOL-EUR → SOL`) before the
-fan-out and shared by all interval rows of that coin.
+in a synchronized list in completion order; before the reports are written the
+rows are sorted by **symbol** (alphabetically) and, within a symbol, by
+**time-window length descending** (1M before 1W before 1d).
 
 ## Picking "the latest row"
 
@@ -100,7 +99,6 @@ than dropping the row, they fall back to the neutral `0.5`.
 | `MADR_SMA_PERIOD` | 50 | [MADR](signal-normalization.md) |
 | `NORMALIZER_WINDOW` | 50 | [Z-score normalizer](signal-normalization.md) |
 | `KLINE_LIMIT` | 200 | candles fetched per series |
-| `NEWS_MAX_AGE` | 48 h | headline cutoff |
 
 200 candles is deliberate headroom: the slowest chain (MADR = SMA 50 warmup +
 z-score window 50 ≈ 99 candles; MACD stat similar) still leaves a comfortable

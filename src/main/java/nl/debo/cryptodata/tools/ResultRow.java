@@ -22,15 +22,8 @@ public record ResultRow(
         double macdSignal,
         double macdHistogram,
         double madr,
-        double macdStat,
-        String news
+        double macdStat
 ) {
-
-    /** Returns a copy of this row with the given news headline. */
-    public ResultRow withNews(String news) {
-        return new ResultRow(symbol, interval, begin, time, close, rsi, stochRsi, k, d,
-                macd, macdSignal, macdHistogram, madr, macdStat, news);
-    }
 
     /**
      * Reporting currency of the pair: {@code "EUR"} for EUR-quoted pairs,

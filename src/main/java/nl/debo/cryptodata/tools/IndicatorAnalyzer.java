@@ -46,8 +46,6 @@ public final class IndicatorAnalyzer {
      * filtered out here, so an uncompleted candle is never used — whether the
      * source ends the series with one (the live API usually does) or not (a
      * market without trades in the open candle, a store of closed candles).
-     * The returned row has no news; attach it with
-     * {@link ResultRow#withNews(String)}.
      */
     public Optional<ResultRow> latestRow(String symbol, String interval, List<Kline> klines) {
         long now = System.currentTimeMillis();
@@ -118,8 +116,7 @@ public final class IndicatorAnalyzer {
                     macdSignal.get(i),
                     macd.get(i) - macdSignal.get(i),
                     madrValue,
-                    macdStatValue,
-                    ""
+                    macdStatValue
             ));
         }
 

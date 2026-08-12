@@ -5,27 +5,23 @@ import nl.debo.cryptodata.utils.CsvUtil;
 import nl.debo.cryptodata.utils.FileUtil;
 
 import java.nio.file.Path;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.function.UnaryOperator;
-import java.util.stream.Collectors;
 
 /**
  * Exchange-independent analysis pipeline: fetches klines for every
  * symbol/interval combination from a {@link KlineSource}, computes
- * RSI / Stochastic RSI / MACD indicators, looks up recent market news per
- * coin and writes the results as CSV and XLSX reports.
+ * RSI / Stochastic RSI / MACD indicators and writes the results as CSV and
+ * XLSX reports.
  *
  * <p>Everything exchange-specific comes in through the constructor: the
- * client, the symbols file, the interval names and how to derive the base
- * coin from a symbol.
+ * client, the symbols file and the interval names.
  */
 public final class CryptoAnalysis {
 
@@ -40,13 +36,9 @@ public final class CryptoAnalysis {
     private static final int NORMALIZER_WINDOW = 50;
     private static final int KLINE_LIMIT = 200;
 
-    /** News older than this is not considered "recent" and is left out. */
-    private static final Duration NEWS_MAX_AGE = Duration.ofHours(48);
-
     private final KlineSource client;
     private final String symbolsFileName;
     private final List<String> intervals;
-    private final UnaryOperator<String> baseAssetOf;
     private final String outputBaseName;
 
     /**
@@ -54,21 +46,17 @@ public final class CryptoAnalysis {
      * @param symbolsFileName name of the symbols file/resource, one symbol per
      *                        line in the exchange's own format
      * @param intervals      interval names in the exchange's own format
-     * @param baseAssetOf    derives the base coin from a symbol (for news lookup),
-     *                       e.g. {@code "SOLEUR" -> "SOL"} or {@code "SOL-EUR" -> "SOL"}
      * @param outputBaseName prefix of the report files written to {@code output/}
      */
     public CryptoAnalysis(
             KlineSource client,
             String symbolsFileName,
             List<String> intervals,
-            UnaryOperator<String> baseAssetOf,
             String outputBaseName
     ) {
         this.client = client;
         this.symbolsFileName = symbolsFileName;
         this.intervals = intervals;
-        this.baseAssetOf = baseAssetOf;
         this.outputBaseName = outputBaseName;
     }
 
@@ -103,12 +91,6 @@ public final class CryptoAnalysis {
                 "Crypto analysis started: " + activeSymbols.size() + " symbols x "
                         + intervals.size() + " intervals"));
 
-        // One news lookup per base coin, shared by all interval rows.
-        var newsClient = new NewsClient();
-        Map<String, String> newsByCoin = newsClient.fetchLatestHeadlines(
-                activeSymbols.stream().map(baseAssetOf).collect(Collectors.toSet()),
-                NEWS_MAX_AGE);
-
         List<ResultRow> results = Collections.synchronizedList(new ArrayList<>());
 
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
@@ -117,8 +99,6 @@ public final class CryptoAnalysis {
                             client.getKlinesAsync(symbol, interval, KLINE_LIMIT)
                                     .thenAcceptAsync(klines ->
                                             analyzer.latestRow(symbol, interval, klines)
-                                                    .map(row -> row.withNews(
-                                                            newsByCoin.getOrDefault(baseAssetOf.apply(symbol), "")))
                                                     .ifPresent(row -> {
                                                         printRow(row);
                                                         results.add(row);
@@ -133,6 +113,11 @@ public final class CryptoAnalysis {
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
         }
 
+        // Report order: symbol alphabetically, the longest time window first
+        // within a symbol.
+        results.sort(Comparator.comparing(ResultRow::symbol)
+                .thenComparing(row -> intervalMillis(row.interval()), Comparator.reverseOrder()));
+
         CsvUtil.appendResultRows(csvPath, results);
         XslxPrinter.write(xlsxPath, dateStr, results);
 
@@ -140,9 +125,25 @@ public final class CryptoAnalysis {
                 "Crypto analysis finished: " + results.size() + " rows -> " + csvPath + " and " + xlsxPath));
     }
 
+    /**
+     * Length of an interval in milliseconds, for ordering only: a month
+     * counts as 30 days, exact calendar lengths do not matter here.
+     */
+    private static long intervalMillis(String interval) {
+        long value = Long.parseLong(interval.substring(0, interval.length() - 1));
+        return value * switch (interval.charAt(interval.length() - 1)) {
+            case 'm' -> 60_000L;
+            case 'h' -> 3_600_000L;
+            case 'd' -> 86_400_000L;
+            case 'w', 'W' -> 7 * 86_400_000L;
+            case 'M' -> 30 * 86_400_000L;
+            default -> throw new IllegalArgumentException("Unknown interval: " + interval);
+        };
+    }
+
     private static void printRow(ResultRow row) {
         System.out.printf(
-                "%s | %s | %s | %s | Close: %.2f | RSI: %.2f | StochRSI: %.4f | K: %.4f | D: %.4f | MACD: %.4f | Signal: %.4f | Hist: %.4f | MADR: %.4f | MACDstat: %.4f%s%n",
+                "%s | %s | %s | %s | Close: %.2f | RSI: %.2f | StochRSI: %.4f | K: %.4f | D: %.4f | MACD: %.4f | Signal: %.4f | Hist: %.4f | MADR: %.4f | MACDstat: %.4f%n",
                 row.symbol(),
                 row.interval(),
                 row.begin(),
@@ -156,8 +157,7 @@ public final class CryptoAnalysis {
                 row.macdSignal(),
                 row.macdHistogram(),
                 row.madr(),
-                row.macdStat(),
-                row.news().isEmpty() ? "" : " | News: " + row.news()
+                row.macdStat()
         );
     }
 }

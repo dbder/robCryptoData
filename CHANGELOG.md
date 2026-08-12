@@ -7,7 +7,11 @@ Hier houden we bij wat er verandert in het project.
 ### Nieuw
 - Algoritme-documentatie in `src/main/resources/nl/debo/cryptodata/`, met mermaid-diagrammen en ASCII-schetsen: `analysis-pipeline.md` (de hele `CryptoAnalysisBitvavo`-pijplijn, van lokale candle-opslag tot rapport, inclusief warmup-boekhouding en parametertabel), `rsi.md` (RSI met Wilder-smoothing), `stochastic-rsi.md` (StochRSI plus K/D-gladstrijking), `macd.md` (EMA, MACD-lijn, signaal en histogram) en `signal-normalization.md` (MADR, geschaald MACD-histogram en de drie normalisatiestrategieën).
 
+### Weggehaald
+- De nieuwsfunctie: `NewsClient`, de `news`-kolom in de CSV en het News-tabblad in het XLSX-rapport zijn verwijderd, net als de `baseAssetOf`-parameter van `CryptoAnalysis` (die bestond alleen voor de nieuws-lookup). Oudere CSV's met een nieuwskolom worden nog gewoon ingelezen; de nieuwskolom wordt daarbij genegeerd.
+
 ### Veranderd
+- De rapportrijen worden vóór het wegschrijven (CSV en XLSX) gesorteerd: op symbool (alfabetisch), per symbool op de lengte van het tijdvenster aflopend (1M vóór 1W vóór 1d). Voorheen stonden de rijen in voltooiingsvolgorde van de parallelle verwerking.
 - Niet-afgesloten candles kunnen nu nergens meer in de analyse belanden: `IndicatorAnalyzer.latestRow` filtert candles op sluittijd (`closeTime ≤ nu`) in plaats van blind de laatste candle van de reeks weg te gooien in de aanname dat die nog open is. Die aanname klopte niet altijd: bij een illiquide markt laat Bitvavo de open candle weg zolang die geen trades heeft, waardoor het API-pad juist de nieuwste gesloten candle verloor. Dat is nu ook opgelost.
 - Doordat het filter op tijd werkt in plaats van op positie heeft `LocalKlineSource` de synthetische open candle niet meer nodig; die is weggehaald. De bron geeft nu simpelweg de nieuwste `limit − 1` gesloten candles terug — hetzelfde candlevenster dat een API-verzoek oplevert nadat zijn open candle is weggefilterd.
 
