@@ -20,18 +20,12 @@ import java.util.concurrent.CompletableFuture;
  * stay local. Without an importer the source is read-only and fails when the
  * CSV is missing.
  *
- * <p>The store holds only closed candles, while the API ends the series with
- * the currently open candle — which the analysis pipeline assumes and drops.
- * To keep both paths identical this source returns the newest
- * {@code limit - 1} closed candles plus one synthetic open candle at the end
- * (flat at the last close, zero volume), so dropping the last candle leaves
- * exactly the closed-candle window the API path would use.
- *
- * <p>One deliberate difference remains: on an illiquid market the API omits
- * the open candle while it has no trades yet, so the pipeline drops the
- * newest <em>closed</em> candle there instead. The synthetic candle is always
- * present, so this source never loses that candle — arguably more correct,
- * but a source of small differences against the API-based run.
+ * <p>The store holds only closed candles, while the API usually ends the
+ * series with the currently open candle. The pipeline filters uncompleted
+ * candles out by close time ({@link IndicatorAnalyzer#latestRow}), so this
+ * source simply returns the newest {@code limit - 1} closed candles — the
+ * same closed-candle window an API request for {@code limit} candles yields
+ * once its open candle is filtered away.
  */
 public final class LocalKlineSource implements KlineSource {
 
@@ -76,27 +70,11 @@ public final class LocalKlineSource implements KlineSource {
             throw new IllegalStateException("no local kline history at " + csvPath
                     + " - run KlineHistoryImportBitvavo first or construct this source with a KlineHistoryImporter");
         }
+        // An empty store (e.g. a freshly listed market with no closed candles
+        // yet) yields an empty list, which the pipeline reports as "not
+        // enough data", not an error.
         List<Kline> klines = KlineCsvStore.readKlines(csvPath);
-        if (klines.isEmpty()) {
-            // No closed candles yet (e.g. a freshly listed market): behave
-            // like the API on a market without trades and return no candles,
-            // which the pipeline reports as "not enough data", not an error.
-            return List.of();
-        }
         int from = Math.max(0, klines.size() - (limit - 1));
-        var window = new ArrayList<>(klines.subList(from, klines.size()));
-        window.add(syntheticOpenCandle(window.getLast(), interval));
-        return window;
-    }
-
-    /**
-     * The candle the exchange would report as currently open. It only exists
-     * to be dropped by the pipeline, but is kept plausible (flat at the last
-     * close, zero volume) for any other use.
-     */
-    private static Kline syntheticOpenCandle(Kline lastClosed, String interval) {
-        long openTime = lastClosed.closeTime() + 1;
-        return new Kline(openTime, lastClosed.close(), lastClosed.close(), lastClosed.close(),
-                lastClosed.close(), 0, BitvavoClient.closeTime(openTime, interval));
+        return new ArrayList<>(klines.subList(from, klines.size()));
     }
 }

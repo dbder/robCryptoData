@@ -42,17 +42,22 @@ public final class IndicatorAnalyzer {
 
     /**
      * Returns the latest complete indicator row for the given klines, or empty
-     * if there is not enough data. The last kline is assumed to be the
-     * currently open candle and is ignored. The returned row has no news;
-     * attach it with {@link ResultRow#withNews(String)}.
+     * if there is not enough data. Candles that have not closed yet are
+     * filtered out here, so an uncompleted candle is never used — whether the
+     * source ends the series with one (the live API usually does) or not (a
+     * market without trades in the open candle, a store of closed candles).
+     * The returned row has no news; attach it with
+     * {@link ResultRow#withNews(String)}.
      */
     public Optional<ResultRow> latestRow(String symbol, String interval, List<Kline> klines) {
-        if (klines.size() <= 1) {
+        long now = System.currentTimeMillis();
+        var closedKlines = klines.stream()
+                .filter(k -> k.closeTime() <= now)
+                .toList();
+
+        if (closedKlines.isEmpty()) {
             return Optional.empty();
         }
-
-        // Remove the currently open candle.
-        var closedKlines = klines.subList(0, klines.size() - 1);
 
         var closes = closedKlines.stream()
                 .map(Kline::close)

@@ -2,7 +2,14 @@
 
 Hier houden we bij wat er verandert in het project.
 
-## [11] - 2026-08-11
+## [12] - 2026-08-12
+
+### Nieuw
+- Algoritme-documentatie in `src/main/resources/nl/debo/cryptodata/`, met mermaid-diagrammen en ASCII-schetsen: `analysis-pipeline.md` (de hele `CryptoAnalysisBitvavo`-pijplijn, van lokale candle-opslag tot rapport, inclusief warmup-boekhouding en parametertabel), `rsi.md` (RSI met Wilder-smoothing), `stochastic-rsi.md` (StochRSI plus K/D-gladstrijking), `macd.md` (EMA, MACD-lijn, signaal en histogram) en `signal-normalization.md` (MADR, geschaald MACD-histogram en de drie normalisatiestrategieën).
+
+### Veranderd
+- Niet-afgesloten candles kunnen nu nergens meer in de analyse belanden: `IndicatorAnalyzer.latestRow` filtert candles op sluittijd (`closeTime ≤ nu`) in plaats van blind de laatste candle van de reeks weg te gooien in de aanname dat die nog open is. Die aanname klopte niet altijd: bij een illiquide markt laat Bitvavo de open candle weg zolang die geen trades heeft, waardoor het API-pad juist de nieuwste gesloten candle verloor. Dat is nu ook opgelost.
+- Doordat het filter op tijd werkt in plaats van op positie heeft `LocalKlineSource` de synthetische open candle niet meer nodig; die is weggehaald. De bron geeft nu simpelweg de nieuwste `limit − 1` gesloten candles terug — hetzelfde candlevenster dat een API-verzoek oplevert nadat zijn open candle is weggefilterd.
 
 ### Veranderd
 - `LocalKlineSource` houdt de lokale candle-opslag nu zelf bij: geef hem een `KlineHistoryImporter` mee en elke aanvraag werkt eerst precies die ene markt/interval-combinatie bij — de CSV wordt bij het eerste gebruik aangemaakt en volledig gevuld, daarna alleen aangevuld met candles die sindsdien gesloten zijn, en als er nog niets nieuws gesloten kán zijn wordt de beurs helemaal niet bevraagd. Zonder importer blijft de bron read-only zoals voorheen.
