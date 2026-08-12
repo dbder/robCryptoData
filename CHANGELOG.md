@@ -2,6 +2,15 @@
 
 Hier houden we bij wat er verandert in het project.
 
+## [13] - 2026-08-12
+
+### Nieuw
+- Nieuw startpunt `CryptoAnalysisBitvavoForDate`: de Bitvavo-analyse voor een zelfgekozen datum. De console vraagt jaar, maand en dag apart (Enter bij jaar = huidig jaar, twee cijfers mogen ook (`26` = 2026), en maand/dag zonder voorloopnul (`8` = 08)); een onmogelijke combinatie zoals 30 februari wordt gemeld en opnieuw gevraagd. De analyse draait daarna alsof hij aan het eind van die dag (UTC) is gestart: candles die later sloten zijn onzichtbaar, dus op dezelfde candle-opslag komt er exact uit wat een live run op die dag had opgeleverd — een week- of maandcandle die toen nog open stond, telt dan ook niet mee. Rapporten in `output/data-bitvavo-fordate<datum>.csv/.xlsx`; de eigen bestandsnaam voorkomt dat een teruggedateerde run aanvult op het `data-bitvavo-local`-rapport dat die dag écht is geschreven.
+
+### Veranderd
+- `LocalKlineSource` kent nu een optionele tijdshorizon (cutoff): alleen candles die vóór dat moment sloten worden geserveerd en het candlevenster wordt dáárna pas genomen, zodat de indicator-warmup terugschuift in de tijd in plaats van te krimpen. Zonder cutoff verandert er niets.
+- `CryptoAnalysis` kan een rapportdatum meekrijgen die de datumstempel in de bestandsnamen en het XLSX bepaalt; zonder blijft het vandaag. De datum stempelt alleen de uitvoer — het "als-van-toen" rekenen is de taak van de `KlineSource` met cutoff.
+
 ## [12] - 2026-08-12
 
 ### Nieuw

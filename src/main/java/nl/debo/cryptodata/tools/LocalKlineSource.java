@@ -4,6 +4,7 @@ import nl.debo.cryptodata.utils.KlineCsvStore;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -31,10 +32,11 @@ public final class LocalKlineSource implements KlineSource {
 
     private final Path klinesDir;
     private final KlineHistoryImporter importer;
+    private final Instant cutoff;
 
     /** Read-only source: serves the CSVs as they are, fails when one is missing. */
     public LocalKlineSource(Path klinesDir) {
-        this(klinesDir, null);
+        this(klinesDir, null, null);
     }
 
     /**
@@ -42,8 +44,21 @@ public final class LocalKlineSource implements KlineSource {
      * (creating it on first use) before serving each request.
      */
     public LocalKlineSource(Path klinesDir, KlineHistoryImporter importer) {
+        this(klinesDir, importer, null);
+    }
+
+    /**
+     * Source with a time horizon: only candles that closed before
+     * {@code cutoff} are served, and the {@code limit} window is taken from
+     * those. A request then sees exactly what a live request at
+     * {@code cutoff} would have seen, which turns the full history in the
+     * store into an as-of view for backdated analysis runs. A {@code null}
+     * cutoff serves everything.
+     */
+    public LocalKlineSource(Path klinesDir, KlineHistoryImporter importer, Instant cutoff) {
         this.klinesDir = klinesDir;
         this.importer = importer;
+        this.cutoff = cutoff;
     }
 
     @Override
@@ -74,6 +89,12 @@ public final class LocalKlineSource implements KlineSource {
         // yet) yields an empty list, which the pipeline reports as "not
         // enough data", not an error.
         List<Kline> klines = KlineCsvStore.readKlines(csvPath);
+        if (cutoff != null) {
+            long cutoffMillis = cutoff.toEpochMilli();
+            klines = klines.stream()
+                    .filter(k -> k.closeTime() < cutoffMillis)
+                    .toList();
+        }
         int from = Math.max(0, klines.size() - (limit - 1));
         return new ArrayList<>(klines.subList(from, klines.size()));
     }

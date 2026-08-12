@@ -40,6 +40,7 @@ public final class CryptoAnalysis {
     private final String symbolsFileName;
     private final List<String> intervals;
     private final String outputBaseName;
+    private final LocalDate reportDate;
 
     /**
      * @param client         exchange to fetch klines from
@@ -54,10 +55,27 @@ public final class CryptoAnalysis {
             List<String> intervals,
             String outputBaseName
     ) {
+        this(client, symbolsFileName, intervals, outputBaseName, LocalDate.now());
+    }
+
+    /**
+     * Pipeline whose reports are stamped with {@code reportDate} instead of
+     * today. The date only names the output files; running the analysis *as
+     * of* that date is the {@link KlineSource}'s job (e.g. a
+     * {@link LocalKlineSource} with a cutoff).
+     */
+    public CryptoAnalysis(
+            KlineSource client,
+            String symbolsFileName,
+            List<String> intervals,
+            String outputBaseName,
+            LocalDate reportDate
+    ) {
         this.client = client;
         this.symbolsFileName = symbolsFileName;
         this.intervals = intervals;
         this.outputBaseName = outputBaseName;
+        this.reportDate = reportDate;
     }
 
     public void run() throws Exception {
@@ -77,7 +95,7 @@ public final class CryptoAnalysis {
                 Path.of(symbolsFileName)
         );
 
-        var dateStr = LocalDate.now().toString();
+        var dateStr = reportDate.toString();
         var csvPath = appDir.resolve("output/" + outputBaseName + dateStr + ".csv");
         var xlsxPath = appDir.resolve("output/" + outputBaseName + dateStr + ".xlsx");
         CsvUtil.ensureHeader(csvPath);
