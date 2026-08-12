@@ -2,14 +2,25 @@ package nl.debo.cryptodata;
 
 import nl.debo.cryptodata.tools.BitvavoClient;
 import nl.debo.cryptodata.tools.CryptoAnalysis;
+import nl.debo.cryptodata.tools.KlineHistoryImporter;
+import nl.debo.cryptodata.tools.LocalKlineSource;
 import nl.debo.cryptodata.tools.PairSymbols;
+import nl.debo.cryptodata.utils.FileUtil;
 
+import java.nio.file.Path;
 import java.util.List;
 
 /**
- * Entry point for the Bitvavo flavour of the {@link CryptoAnalysis} pipeline.
- * Bitvavo markets are dash-separated ({@code "SOL-EUR"}) and the weekly
- * interval is spelled with a capital W ({@code "1W"}).
+ * Entry point: the {@link CryptoAnalysis} pipeline fed from the local candle
+ * store instead of the live API. The {@link LocalKlineSource} carries a
+ * {@link KlineHistoryImporter}, so each requested market/interval CSV in
+ * {@code output/klines-bitvavo/} is created or brought up to date on demand —
+ * only the combinations the analysis actually uses are touched. Run
+ * {@link KlineHistoryImportBitvavo} to refresh the whole store.
+ *
+ * <p>Reports land in {@code output/data-bitvavo-local<date>.csv/.xlsx}, so a
+ * run of {@link CryptoAnalysisBitvavo} on the same day can be compared
+ * against them one to one.</p>
  */
 public final class CryptoAnalysisBitvavo {
 
@@ -19,12 +30,14 @@ public final class CryptoAnalysisBitvavo {
     }
 
     public static void main(String[] args) throws Exception {
+        Path klinesDir = FileUtil.applicationDir().resolve("output/klines-bitvavo");
+
         new CryptoAnalysis(
-                new BitvavoClient(),
+                new LocalKlineSource(klinesDir, new KlineHistoryImporter(new BitvavoClient(), klinesDir)),
                 "symbols-bitvavo",
                 INTERVALS,
                 PairSymbols::base,
-                "data-bitvavo"
+                "data-bitvavo-local"
         ).run();
     }
 }
