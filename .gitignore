@@ -8,3 +8,4 @@ output/*
 .claude/
 bitvavo.properties
 node_modules/
+src/main/resources/nl/debo/cryptodata/indicators
