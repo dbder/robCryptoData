@@ -174,13 +174,13 @@ export default function Chart({ candles, series, buy, enabled, sim }) {
     }
   }, [candles, sim]);
 
-  // Reset the view when the coin/timeframe changes.
+  // Reset the view when the coin/timeframe/trade range changes: the last 150 candles of the trading window.
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart || candles.length === 0) return;
-    const n = candles.length;
-    chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 150), to: n + 3 });
-  }, [candles]);
+    const end = Math.min(candles.length - 1, Math.max(0, sim.lastIndex)) + 1;
+    chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, sim.firstIndex, end - 150), to: end + 3 });
+  }, [candles, sim.firstIndex, sim.lastIndex]);
 
   // Indicator panes follow the toggles.
   useEffect(() => {

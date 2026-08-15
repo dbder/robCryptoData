@@ -21,7 +21,28 @@ function fromUrl() {
     stake: numOr(q.get('stake'), DEFAULT_STAKE_EUR),
     feePct: numOr(q.get('fee'), DEFAULT_FEE * 100),
     skipWhileOpen: q.get('skip') !== '0',
+    from: dateOr(q.get('from')),
+    to: dateOr(q.get('to')),
   };
+}
+/** 'YYYY-MM-DD' or '' (no bound). */
+function dateOr(v) {
+  return v && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(v)) ? v : '';
+}
+const DAY = 24 * 60 * 60 * 1000;
+/** Start of the day (UTC) as ms, or null when unbounded. */
+const fromMs = (d) => (d ? Date.parse(d) : null);
+/** End of the day (UTC) as ms so the "to" day is included, or null when unbounded. */
+const toMs = (d) => (d ? Date.parse(d) + DAY - 1 : null);
+const isoDay = (ms) => new Date(ms).toISOString().slice(0, 10);
+const RANGE_PRESETS = [
+  { label: '1m', months: 1 }, { label: '3m', months: 3 }, { label: '6m', months: 6 },
+  { label: '1y', months: 12 }, { label: '2y', months: 24 }, { label: 'all', months: null },
+];
+function monthsAgo(n) {
+  const d = new Date();
+  d.setUTCMonth(d.getUTCMonth() - n);
+  return isoDay(d.getTime());
 }
 function numOrZero(v, fallback) {
   const n = Number(v);
@@ -48,14 +69,18 @@ export default function App() {
   const [stake, setStake] = useState(initial.stake);
   const [feePct, setFeePct] = useState(initial.feePct);
   const [skipWhileOpen, setSkipWhileOpen] = useState(initial.skipWhileOpen);
+  const [from, setFrom] = useState(initial.from);
+  const [to, setTo] = useState(initial.to);
   const [showTrades, setShowTrades] = useState(false);
   const [showAllCoins, setShowAllCoins] = useState(false);
 
   // Keep the URL in sync with the selection.
   useEffect(() => {
     const q = new URLSearchParams({ market, interval, ind: enabled.join(','), mode, stop: stopPct, target: targetPct, stake, fee: feePct, skip: skipWhileOpen ? '1' : '0' });
+    if (from) q.set('from', from);
+    if (to) q.set('to', to);
     window.history.replaceState(null, '', `?${q}`);
-  }, [market, interval, enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen]);
+  }, [market, interval, enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen, from, to]);
 
   // Market list from the local candle store.
   useEffect(() => {
@@ -90,8 +115,8 @@ export default function App() {
   const series = useMemo(() => (candles.length ? computeAll(candles) : EMPTY), [candles]);
   const buy = useMemo(() => combineBuySignals(series, enabled, mode), [series, enabled, mode]);
   const sim = useMemo(
-    () => simulateTrades(candles, buy, { stopLoss: stopPct / 100, takeProfit: targetPct / 100, stake, fee: feePct / 100, skipWhileOpen }),
-    [candles, buy, stopPct, targetPct, stake, feePct, skipWhileOpen]
+    () => simulateTrades(candles, buy, { stopLoss: stopPct / 100, takeProfit: targetPct / 100, stake, fee: feePct / 100, skipWhileOpen, from: fromMs(from), to: toMs(to) }),
+    [candles, buy, stopPct, targetPct, stake, feePct, skipWhileOpen, from, to]
   );
 
   const intervals = markets.find((m) => m.market === market)?.intervals ?? ['1d'];
@@ -104,9 +129,11 @@ export default function App() {
   const last = candles.at(-1);
   // Everything the simulation depends on besides the candles — handed to the all-coins modal.
   const config = useMemo(
-    () => ({ enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen }),
-    [enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen]
+    () => ({ enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen, from: fromMs(from), to: toMs(to) }),
+    [enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen, from, to]
   );
+  const activePreset = RANGE_PRESETS.find((p) => (p.months === null ? !from && !to : from === monthsAgo(p.months) && !to))?.label;
+  const inRange = sim.lastIndex - sim.firstIndex + 1;
 
   return (
     <div className="app">
@@ -139,11 +166,28 @@ export default function App() {
             ))}
           </div>
         </div>
+        <div className="group" title="buys and sells only happen in this window; earlier candles still warm up the indicators">
+          <label>Trade range</label>
+          <input type="date" className="date" value={from} max={to || undefined} onChange={(e) => setFrom(dateOr(e.target.value))} />
+          <span className="muted">→</span>
+          <input type="date" className="date" value={to} min={from || undefined} onChange={(e) => setTo(dateOr(e.target.value))} />
+          <div className="segmented">
+            {RANGE_PRESETS.map((p) => (
+              <button
+                key={p.label}
+                className={activePreset === p.label ? 'active' : ''}
+                onClick={() => { setFrom(p.months === null ? '' : monthsAgo(p.months)); setTo(''); }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="status">
           {loading && <span>loading…</span>}
           {!loading && last && (
             <span>
-              {candles.length} candles · last close{' '}
+              {candles.length} candles{(from || to) && ` (${Math.max(0, inRange)} in range)`} · last close{' '}
               <strong>{fmt(last.close)}</strong> · {new Date(last.closeTime).toISOString().slice(0, 16).replace('T', ' ')} UTC
             </span>
           )}
@@ -253,10 +297,10 @@ function TradeLog({ candles, sim }) {
           {[...sim.openTrades].reverse().map((t) => (
             <tr className="open" key={`open-${t.entryIndex}`}>
               <td>open</td><td>{dateOf(candles[t.entryIndex])}</td><td>{fmt(t.entry)}</td>
-              <td>—</td><td>{fmt(candles.at(-1).close)} (last)</td>
+              <td>—</td><td>{fmt(candles[sim.lastIndex].close)} (last)</td>
               <td className={t.move >= 0 ? 'win' : 'loss'}>{pct(t.move)}</td>
               <td className={t.eur >= 0 ? 'win' : 'loss'}>{eur(t.eur)} (open)</td>
-              <td>{candles.length - 1 - t.entryIndex}</td>
+              <td>{sim.lastIndex - t.entryIndex}</td>
             </tr>
           ))}
           {rows.map((t, i) => (

@@ -60,10 +60,10 @@ export default function AllCoinsModal({ markets, interval, config, onClose }) {
 
   // One simulation per coin with the current configuration.
   const rows = useMemo(() => {
-    const { enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen } = config;
+    const { enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen, from, to } = config;
     return Object.entries(loaded).map(([market, { candles, series }]) => {
       const buy = combineBuySignals(series, enabled, mode);
-      const sim = simulateTrades(candles, buy, { stopLoss: stopPct / 100, takeProfit: targetPct / 100, stake, fee: feePct / 100, skipWhileOpen });
+      const sim = simulateTrades(candles, buy, { stopLoss: stopPct / 100, takeProfit: targetPct / 100, stake, fee: feePct / 100, skipWhileOpen, from, to });
       return {
         market,
         trades: sim.trades.length, wins: sim.wins, losses: sim.losses,
@@ -103,7 +103,7 @@ export default function AllCoinsModal({ markets, interval, config, onClose }) {
           <span className="muted">
             {config.enabled.length === 0
               ? 'no indicator enabled — turn one on to simulate buys'
-              : `${config.enabled.join(' + ')} (${config.mode}) · stop ${config.stopPct}% · target ${config.targetPct}% · €${config.stake} per trade · ${config.feePct}% fee`}
+              : `${config.enabled.join(' + ')} (${config.mode}) · stop ${config.stopPct}% · target ${config.targetPct}% · €${config.stake} per trade · ${config.feePct}% fee${rangeLabel(config)}`}
           </span>
           <button className="close" onClick={onClose} aria-label="close">×</button>
         </header>
@@ -168,5 +168,8 @@ function TotalsRow({ totals, count }) {
   );
 }
 
+const day = (ms) => new Date(ms).toISOString().slice(0, 10);
+const rangeLabel = ({ from, to }) =>
+  from == null && to == null ? '' : ` · trades ${from == null ? 'until' : `from ${day(from)}`}${to == null ? '' : `${from == null ? '' : ' to'} ${day(to)}`}`;
 const sign = (v) => (v > 0 ? 'win' : v < 0 ? 'loss' : '');
 const eur = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}€${Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;

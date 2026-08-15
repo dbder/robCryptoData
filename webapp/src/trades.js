@@ -9,6 +9,10 @@
 // - With `skipWhileOpen` (default) signals that arrive while a trade is open are
 //   ignored (reported as `skipped`); without it every signal opens its own trade,
 //   each with its own stop/target.
+// - `from` / `to` (ms timestamps, optional) restrict trading to candles opening in
+//   that window: buys and sells only happen inside it. Candles before `from` are
+//   still there for the indicators to warm up on, candles after `to` are ignored,
+//   and trades still open at `to` are valued at the last candle inside the window.
 
 export const DEFAULT_STOP_LOSS = 0.08;    // sell if the candle closes 8% or more below entry
 export const DEFAULT_TAKE_PROFIT = 0.25;  // sell if the candle closes 25% or more above entry
@@ -28,12 +32,15 @@ export function simulateTrades(candles, buy, {
   stake = DEFAULT_STAKE_EUR,
   fee = DEFAULT_FEE,
   skipWhileOpen = true,
+  from = null,
+  to = null,
 } = {}) {
   const trades = [];
   const skipped = [];
   let opens = [];   // open trades, oldest first
+  const { firstIndex, lastIndex } = tradingWindow(candles, from, to);
 
-  for (let i = 0; i < candles.length; i++) {
+  for (let i = firstIndex; i <= lastIndex; i++) {
     const c = candles[i];
 
     opens = opens.filter((open) => {
@@ -55,7 +62,7 @@ export function simulateTrades(candles, buy, {
   const wins = trades.filter((t) => t.eur > 0).length;
   const eur = trades.reduce((sum, t) => sum + t.eur, 0);   // realized P/L, `stake` per trade, fees included
   const compounded = trades.reduce((acc, t) => acc * (1 + t.pct), 1) - 1;
-  const last = candles[candles.length - 1];
+  const last = candles[lastIndex];
   const openTrades = opens.map((open) => {
     const unrealized = tradeResultEur(stake, open.entry, last.close, fee);
     return {
@@ -73,5 +80,15 @@ export function simulateTrades(candles, buy, {
     trades, skipped, openTrades, openEur,
     open: openTrades[0] ?? null,   // oldest open trade (convenience for single-position mode)
     wins, losses: trades.length - wins, compounded, eur, stake, fee,
+    firstIndex, lastIndex,         // candle indices the simulation actually traded on
   };
+}
+
+/** Index range of the candles that open inside [from, to]; empty range when none do. */
+export function tradingWindow(candles, from, to) {
+  let firstIndex = 0;
+  let lastIndex = candles.length - 1;
+  if (from != null) while (firstIndex < candles.length && candles[firstIndex].openTime < from) firstIndex++;
+  if (to != null) while (lastIndex >= 0 && candles[lastIndex].openTime > to) lastIndex--;
+  return { firstIndex, lastIndex };
 }

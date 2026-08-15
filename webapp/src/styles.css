@@ -28,6 +28,11 @@ select, input.filter {
   border-radius: 6px; padding: 6px 8px; font: inherit;
 }
 input.filter { width: 110px; }
+input.date {
+  background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 8px; font: inherit; width: 140px;
+}
+.muted { color: var(--muted); }
 select { min-width: 140px; }
 button {
   background: var(--bg); color: var(--text); border: 1px solid var(--border);
