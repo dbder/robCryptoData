@@ -28,10 +28,34 @@ select, input.filter {
   border-radius: 6px; padding: 6px 8px; font: inherit;
 }
 input.filter { width: 110px; }
-input.date {
-  background: var(--bg); color: var(--text); border: 1px solid var(--border);
-  border-radius: 6px; padding: 5px 8px; font: inherit; width: 140px;
+/* yyyy-mm-dd field made of three typeable segments; double-click a segment for a pick list. */
+.datefield {
+  position: relative; display: inline-flex; align-items: center;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 3px 4px 3px 6px;
 }
+.datefield:focus-within { border-color: var(--accent); }
+.datefield.invalid { border-color: #ef5350; }
+.datefield .seg {
+  background: none; border: none; color: var(--text); font: inherit; padding: 2px 1px;
+  text-align: center; outline: none; font-variant-numeric: tabular-nums;
+}
+.datefield .seg::placeholder { color: var(--muted); }
+.datefield .seg-y { width: 4.2ch; }
+.datefield .seg-m, .datefield .seg-d { width: 2.4ch; }
+.datefield .seg:focus { background: rgba(79, 163, 255, .25); border-radius: 3px; }
+.datefield .sep { color: var(--muted); }
+.datefield .clear {
+  background: none; border: none; color: var(--muted); padding: 0 4px; line-height: 1; font-size: 14px;
+}
+.datefield .clear:hover { color: var(--text); }
+.datelist {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 40; margin: 0; padding: 4px 0; list-style: none;
+  max-height: 220px; overflow-y: auto; min-width: 72px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
+}
+.datelist li { padding: 4px 14px; cursor: pointer; font-variant-numeric: tabular-nums; }
+.datelist li:hover { background: rgba(79, 163, 255, .2); }
+.datelist li.selected { background: var(--accent); color: #06111f; font-weight: 600; }
 .muted { color: var(--muted); }
 select { min-width: 140px; }
 button {

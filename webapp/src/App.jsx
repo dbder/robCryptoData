@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Chart from './Chart.jsx';
 import AllCoinsModal from './AllCoins.jsx';
+import DateField from './DateField.jsx';
 import { computeAll } from './indicators.js';
 import { INDICATORS, combineBuySignals } from './signals.js';
 import { simulateTrades, DEFAULT_STOP_LOSS, DEFAULT_TAKE_PROFIT, DEFAULT_STAKE_EUR, DEFAULT_FEE } from './trades.js';
@@ -168,9 +169,9 @@ export default function App() {
         </div>
         <div className="group" title="buys and sells only happen in this window; earlier candles still warm up the indicators">
           <label>Trade range</label>
-          <input type="date" className="date" value={from} max={to || undefined} onChange={(e) => setFrom(dateOr(e.target.value))} />
+          <DateField value={from} max={to} edge="start" onChange={setFrom} />
           <span className="muted">→</span>
-          <input type="date" className="date" value={to} min={from || undefined} onChange={(e) => setTo(dateOr(e.target.value))} />
+          <DateField value={to} min={from} edge="end" onChange={setTo} />
           <div className="segmented">
             {RANGE_PRESETS.map((p) => (
               <button
@@ -196,7 +197,7 @@ export default function App() {
       </header>
 
       <main className="chart-wrap">
-        <Chart candles={candles} series={series} buy={buy} enabled={enabled} sim={sim} />
+        <Chart candles={candles} series={series} buy={buy} enabled={enabled} sim={sim} ranged={Boolean(from || to)} />
       </main>
 
       {showTrades && <TradeLog candles={candles} sim={sim} />}

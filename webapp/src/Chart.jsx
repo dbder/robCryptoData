@@ -85,7 +85,7 @@ const PANES = {
  * Candlestick chart with optional indicator panes underneath.
  * `buy[i]` true → candle i is painted gold.
  */
-export default function Chart({ candles, series, buy, enabled, sim }) {
+export default function Chart({ candles, series, buy, enabled, sim, ranged = false }) {
   const containerRef = useRef(null);
   const chartRef = useRef(null);
   const candleSeriesRef = useRef(null);
@@ -174,13 +174,15 @@ export default function Chart({ candles, series, buy, enabled, sim }) {
     }
   }, [candles, sim]);
 
-  // Reset the view when the coin/timeframe/trade range changes: the last 150 candles of the trading window.
+  // Reset the view when the coin/timeframe/trade range changes: the whole trading
+  // window when a range is set (an open end runs to the last candle), else the last 150 candles.
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart || candles.length === 0) return;
     const end = Math.min(candles.length - 1, Math.max(0, sim.lastIndex)) + 1;
-    chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, sim.firstIndex, end - 150), to: end + 3 });
-  }, [candles, sim.firstIndex, sim.lastIndex]);
+    const start = ranged ? Math.min(sim.firstIndex, end - 1) : end - 150;
+    chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, start), to: end + 3 });
+  }, [candles, ranged, sim.firstIndex, sim.lastIndex]);
 
   // Indicator panes follow the toggles.
   useEffect(() => {
