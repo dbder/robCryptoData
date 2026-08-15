@@ -2,6 +2,11 @@
 
 Hier houden we bij wat er verandert in het project.
 
+## [14] - 2026-08-15
+
+### Nieuw
+- React-webapp in `webapp/` (Vite + lightweight-charts) die de lokale candle-opslag `output/klines-bitvavo/` als candlestick-grafiek toont: kies een munt en tijdvenster (1h t/m 1M); onder de grafiek staan de knoppen RSI, S-RSI en MACD die los van elkaar aan/uit kunnen. Elke knop toont het indicatorpaneel onder de candles en kleurt candles op een koopsignaal **goud** (RSI ≤ 30; StochRSI %K kruist %D omhoog met K ≤ 0,2; MACD-lijn kruist signaal omhoog). Met "all fire"/"any fires" bepaal je of alle ingeschakelde indicatoren tegelijk moeten vuren of één volstaat. De keuze staat in de URL zodat een weergave herladen kan worden. De indicatorberekening (`webapp/src/indicators.js`) is een 1-op-1 port van de Java `Indicators` en geeft op hetzelfde candlevenster exact de rapportwaardes. Starten: `cd webapp && npm install && npm run dev` (zie `webapp/README.md`).
+
 ## [13] - 2026-08-12
 
 ### Nieuw
