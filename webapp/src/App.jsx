@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Chart from './Chart.jsx';
 import { computeAll } from './indicators.js';
 import { INDICATORS, combineBuySignals } from './signals.js';
-import { simulateTrades, DEFAULT_STOP_LOSS, DEFAULT_TAKE_PROFIT, DEFAULT_STAKE_EUR } from './trades.js';
+import { simulateTrades, DEFAULT_STOP_LOSS, DEFAULT_TAKE_PROFIT, DEFAULT_STAKE_EUR, DEFAULT_FEE } from './trades.js';
 
 const EMPTY = { rsi: [], stochRsi: [], k: [], d: [], macd: [], signal: [], hist: [] };
 const VALID_IND = INDICATORS.map((i) => i.id);
@@ -18,7 +18,12 @@ function fromUrl() {
     stopPct: numOr(q.get('stop'), DEFAULT_STOP_LOSS * 100),
     targetPct: numOr(q.get('target'), DEFAULT_TAKE_PROFIT * 100),
     stake: numOr(q.get('stake'), DEFAULT_STAKE_EUR),
+    feePct: numOr(q.get('fee'), DEFAULT_FEE * 100),
   };
+}
+function numOrZero(v, fallback) {
+  const n = Number(v);
+  return v !== '' && Number.isFinite(n) && n >= 0 ? n : fallback;
 }
 function numOr(v, fallback) {
   const n = Number(v);
@@ -39,13 +44,14 @@ export default function App() {
   const [stopPct, setStopPct] = useState(initial.stopPct);
   const [targetPct, setTargetPct] = useState(initial.targetPct);
   const [stake, setStake] = useState(initial.stake);
+  const [feePct, setFeePct] = useState(initial.feePct);
   const [showTrades, setShowTrades] = useState(false);
 
   // Keep the URL in sync with the selection.
   useEffect(() => {
-    const q = new URLSearchParams({ market, interval, ind: enabled.join(','), mode, stop: stopPct, target: targetPct, stake });
+    const q = new URLSearchParams({ market, interval, ind: enabled.join(','), mode, stop: stopPct, target: targetPct, stake, fee: feePct });
     window.history.replaceState(null, '', `?${q}`);
-  }, [market, interval, enabled, mode, stopPct, targetPct, stake]);
+  }, [market, interval, enabled, mode, stopPct, targetPct, stake, feePct]);
 
   // Market list from the local candle store.
   useEffect(() => {
@@ -80,8 +86,8 @@ export default function App() {
   const series = useMemo(() => (candles.length ? computeAll(candles) : EMPTY), [candles]);
   const buy = useMemo(() => combineBuySignals(series, enabled, mode), [series, enabled, mode]);
   const sim = useMemo(
-    () => simulateTrades(candles, buy, { stopLoss: stopPct / 100, takeProfit: targetPct / 100, stake }),
-    [candles, buy, stopPct, targetPct, stake]
+    () => simulateTrades(candles, buy, { stopLoss: stopPct / 100, takeProfit: targetPct / 100, stake, fee: feePct / 100 }),
+    [candles, buy, stopPct, targetPct, stake, feePct]
   );
 
   const intervals = markets.find((m) => m.market === market)?.intervals ?? ['1d'];
@@ -164,14 +170,14 @@ export default function App() {
           </div>
         </div>
         <div className="group">
-          <label>Sell at</label>
+          <label>Sell when close</label>
           <span className="pct-input">
             <input type="number" min="0.5" step="0.5" value={stopPct}
-              onChange={(e) => setStopPct(numOr(e.target.value, stopPct))} /> % loss
+              onChange={(e) => setStopPct(numOr(e.target.value, stopPct))} /> % down
           </span>
           <span className="pct-input">
             <input type="number" min="0.5" step="0.5" value={targetPct}
-              onChange={(e) => setTargetPct(numOr(e.target.value, targetPct))} /> % gain
+              onChange={(e) => setTargetPct(numOr(e.target.value, targetPct))} /> % up
           </span>
         </div>
         <div className="group">
@@ -179,6 +185,10 @@ export default function App() {
           <span className="pct-input">
             € <input type="number" min="1" step="100" value={stake}
               onChange={(e) => setStake(numOr(e.target.value, stake))} />
+          </span>
+          <span className="pct-input" title="charged on the buy and again on the sell">
+            fee <input type="number" min="0" step="0.05" value={feePct}
+              onChange={(e) => setFeePct(numOrZero(e.target.value, feePct))} /> %
           </span>
         </div>
         <div className="status">
@@ -201,7 +211,7 @@ function TradeSummary({ sim, onToggleLog, showTrades }) {
     <span className="summary">
       <span className="swatch" /> {n} trade{n === 1 ? '' : 's'}
       {n > 0 && <> · <span className="win">{sim.wins} target</span> / <span className="loss">{sim.losses} stop</span> · P/L <strong className={sim.eur >= 0 ? 'win' : 'loss'}>{eur(sim.eur)}</strong> <span title="same trades with the proceeds reinvested">({pct(sim.compounded)} compounded)</span></>}
-      {sim.open && <> · <strong>open</strong> {eur(sim.open.eur)} ({pct(sim.open.pct)})</>}
+      {sim.open && <> · <strong>open</strong> {eur(sim.open.eur)} ({pct(sim.open.move)} price)</>}
       {sim.skipped.length > 0 && <> · {sim.skipped.length} signal{sim.skipped.length === 1 ? '' : 's'} skipped</>}
       {' '}<button className="link" onClick={onToggleLog}>{showTrades ? 'hide log' : 'show log'}</button>
     </span>
@@ -214,14 +224,14 @@ function TradeLog({ candles, sim }) {
     <section className="trade-log">
       <table>
         <thead>
-          <tr><th>#</th><th>Buy</th><th>Entry</th><th>Sell</th><th>Exit</th><th>Result</th><th>P/L (€{sim.stake.toLocaleString('en-US')})</th><th>Candles held</th></tr>
+          <tr><th>#</th><th>Buy</th><th>Entry</th><th>Sell</th><th>Exit</th><th>Price move</th><th>P/L (€{sim.stake.toLocaleString('en-US')}, {(sim.fee * 100).toFixed(2)}% fee ×2)</th><th>Candles held</th></tr>
         </thead>
         <tbody>
           {sim.open && (
             <tr className="open">
               <td>open</td><td>{dateOf(candles[sim.open.entryIndex])}</td><td>{fmt(sim.open.entry)}</td>
               <td>—</td><td>{fmt(candles.at(-1).close)} (last)</td>
-              <td className={sim.open.pct >= 0 ? 'win' : 'loss'}>{pct(sim.open.pct)}</td>
+              <td className={sim.open.move >= 0 ? 'win' : 'loss'}>{pct(sim.open.move)}</td>
               <td className={sim.open.eur >= 0 ? 'win' : 'loss'}>{eur(sim.open.eur)} (open)</td>
               <td>{candles.length - 1 - sim.open.entryIndex}</td>
             </tr>
@@ -231,7 +241,7 @@ function TradeLog({ candles, sim }) {
               <td>{rows.length - i}</td>
               <td>{dateOf(candles[t.entryIndex])}</td><td>{fmt(t.entry)}</td>
               <td>{dateOf(candles[t.exitIndex])}</td><td>{fmt(t.exit)}</td>
-              <td className={t.pct >= 0 ? 'win' : 'loss'}>{pct(t.pct)} ({t.reason})</td>
+              <td className={t.move >= 0 ? 'win' : 'loss'}>{pct(t.move)} ({t.reason})</td>
               <td className={t.eur >= 0 ? 'win' : 'loss'}>{eur(t.eur)}</td>
               <td>{t.exitIndex - t.entryIndex}</td>
             </tr>
