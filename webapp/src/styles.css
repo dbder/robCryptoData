@@ -75,3 +75,48 @@ label.check {
   font-size: 14px; color: var(--text); cursor: pointer;
 }
 label.check input { accent-color: var(--gold); width: 15px; height: 15px; }
+
+/* Right end of the footer: "all coins" button on top, trade summary below it. */
+.footer-right {
+  margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+}
+.footer-right .status { margin-left: 0; }
+button.all-coins {
+  background: var(--accent); color: #06111f; border-color: var(--accent);
+  border-radius: 999px; padding: 6px 14px; font-weight: 600;
+}
+button.all-coins:hover { filter: brightness(1.1); }
+
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 30; background: rgba(0, 0, 0, .6);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.modal {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  width: min(1000px, 100%); max-height: 100%; display: flex; flex-direction: column;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .6);
+}
+.modal-head {
+  display: flex; align-items: center; gap: 16px; padding: 12px 16px; border-bottom: 1px solid var(--border);
+}
+.modal-head h2 { margin: 0; font-size: 16px; font-weight: 600; white-space: nowrap; }
+.modal-head .muted { color: var(--muted); font-size: 13px; flex: 1; }
+.modal-head .close { padding: 2px 10px; font-size: 18px; line-height: 1; }
+.modal-progress {
+  position: relative; height: 22px; font-size: 12px; color: var(--muted); padding: 0 16px; line-height: 22px;
+  background: linear-gradient(to right, rgba(79, 163, 255, .18) calc(var(--p) * 100%), transparent calc(var(--p) * 100%));
+  border-bottom: 1px solid var(--border);
+}
+.modal-body { overflow: auto; min-height: 0; }
+.modal-body table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.modal-body th, .modal-body td { text-align: right; padding: 5px 12px; white-space: nowrap; }
+.modal-body th:first-child, .modal-body td:first-child { text-align: left; }
+.modal-body th { color: var(--muted); font-weight: 500; cursor: pointer; user-select: none; }
+.modal-body th:hover { color: var(--text); }
+.modal-body thead { position: sticky; top: 0; z-index: 1; background: var(--panel); }
+.modal-body tfoot { position: sticky; bottom: 0; z-index: 1; background: var(--panel); }
+.modal-body tr.totals td {
+  font-weight: 600; background: var(--bg); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.modal-body tbody tr:hover td { background: rgba(255, 255, 255, .03); }
+.modal-body tr.failed td { color: #ff7b7b; }

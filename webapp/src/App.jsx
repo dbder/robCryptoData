@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import Chart from './Chart.jsx';
+import AllCoinsModal from './AllCoins.jsx';
 import { computeAll } from './indicators.js';
 import { INDICATORS, combineBuySignals } from './signals.js';
 import { simulateTrades, DEFAULT_STOP_LOSS, DEFAULT_TAKE_PROFIT, DEFAULT_STAKE_EUR, DEFAULT_FEE } from './trades.js';
@@ -48,6 +49,7 @@ export default function App() {
   const [feePct, setFeePct] = useState(initial.feePct);
   const [skipWhileOpen, setSkipWhileOpen] = useState(initial.skipWhileOpen);
   const [showTrades, setShowTrades] = useState(false);
+  const [showAllCoins, setShowAllCoins] = useState(false);
 
   // Keep the URL in sync with the selection.
   useEffect(() => {
@@ -100,6 +102,11 @@ export default function App() {
     setEnabled((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
 
   const last = candles.at(-1);
+  // Everything the simulation depends on besides the candles — handed to the all-coins modal.
+  const config = useMemo(
+    () => ({ enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen }),
+    [enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen]
+  );
 
   return (
     <div className="app">
@@ -197,12 +204,21 @@ export default function App() {
               onChange={(e) => setFeePct(numOrZero(e.target.value, feePct))} /> %
           </span>
         </div>
-        <div className="status">
-          {enabled.length === 0
-            ? <span>turn on an indicator to simulate buys</span>
-            : <TradeSummary sim={sim} skipWhileOpen={skipWhileOpen} onToggleLog={() => setShowTrades((v) => !v)} showTrades={showTrades} />}
+        <div className="footer-right">
+          <button className="all-coins" title="P/L of the current configuration for every coin" onClick={() => setShowAllCoins(true)}>
+            Σ all coins
+          </button>
+          <div className="status">
+            {enabled.length === 0
+              ? <span>turn on an indicator to simulate buys</span>
+              : <TradeSummary sim={sim} skipWhileOpen={skipWhileOpen} onToggleLog={() => setShowTrades((v) => !v)} showTrades={showTrades} />}
+          </div>
         </div>
       </footer>
+
+      {showAllCoins && (
+        <AllCoinsModal markets={markets} interval={interval} config={config} onClose={() => setShowAllCoins(false)} />
+      )}
     </div>
   );
 }
