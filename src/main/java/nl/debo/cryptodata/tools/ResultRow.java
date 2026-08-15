@@ -42,6 +42,7 @@ public record ResultRow(
             case K -> k;
             case D -> d;
             case MACD -> macd;
+            case MADR -> madr;
         });
     }
 
@@ -111,9 +112,10 @@ public record ResultRow(
      * Combined 0..1 buy/sell score: the average of every 0..1-scaled
      * statistic present in the row (RSI/100, StochRSI, K, D, MADR, MACD
      * stat), all oriented the same way. 0 = every indicator says buy,
-     * 1 = every indicator says sell, 0.5 = neutral or mixed. Indicators left
-     * out of the run (NaN) do not take part, so a run on RSI alone scores
-     * the average of RSI/100 and MADR.
+     * 1 = every indicator says sell, 0.5 = neutral or mixed. Only selected
+     * indicators take part (the others are NaN), so a run on RSI and MADR
+     * scores the average of RSI/100 and MADR; with nothing scorable selected
+     * the score is the neutral 0.5.
      */
     public double score() {
         double sum = 0;

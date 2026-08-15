@@ -18,15 +18,15 @@ import java.util.stream.Collectors;
  * spreadsheet and the combined score.
  *
  * <p>{@link #MACD} stands for the whole MACD family: MACD line, signal
- * line, histogram and the normalized MACD stat. MADR is not selectable and
- * is always reported.</p>
+ * line, histogram and the normalized MACD stat.</p>
  */
 public enum Indicator {
     RSI("RSI"),
     STOCH_RSI("STOCH-RSI"),
     K("K"),
     D("D"),
-    MACD("MACD");
+    MACD("MACD"),
+    MADR("MADR");
 
     private final String label;
 

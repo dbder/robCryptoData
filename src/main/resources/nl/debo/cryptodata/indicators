@@ -1,17 +1,20 @@
 # Indicators the analysis reports on, one per line. Comment a line out with #
-# to leave that indicator out; any combination of these five is allowed:
+# to leave that indicator out; any combination of these six is allowed:
 #
 #   RSI        Relative Strength Index (0..100)
 #   STOCH-RSI  Stochastic RSI, the raw 0..1 value before smoothing
 #   K          %K: SMA(3) of the Stochastic RSI
 #   D          %D: SMA(3) of %K
 #   MACD       MACD line, signal line, histogram and the normalized MACD stat
+#   MADR       normalized distance of the close to its SMA(50), 0..1
 #
 # Whatever is left out disappears from the console line, the CSV cells stay
 # empty, the XLSX columns are omitted and the Score averages only the chosen
-# indicators (plus MADR, which is always on).
+# indicators.
+# ROB -> doe een # voor de regel die je niet wil hieronder
 RSI
-#STOCH-RSI
-#K
-#D
-#MACD
+STOCH-RSI
+K
+D
+MACD
+MADR

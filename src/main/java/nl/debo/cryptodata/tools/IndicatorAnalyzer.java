@@ -93,6 +93,7 @@ public final class IndicatorAnalyzer {
         boolean wantK = indicators.contains(Indicator.K);
         boolean wantD = indicators.contains(Indicator.D);
         boolean wantMacd = indicators.contains(Indicator.MACD);
+        boolean wantMadr = indicators.contains(Indicator.MADR);
 
         for (int i = closedKlines.size() - 1; i >= 0; i--) {
             // Every series is NaN-padded to the length of the closes; the
@@ -131,7 +132,7 @@ public final class IndicatorAnalyzer {
                     wantMacd ? macd.get(i) : Double.NaN,
                     wantMacd ? macdSignal.get(i) : Double.NaN,
                     wantMacd ? macd.get(i) - macdSignal.get(i) : Double.NaN,
-                    madrValue,
+                    wantMadr ? madrValue : Double.NaN,
                     wantMacd ? macdStatValue : Double.NaN
             ));
         }

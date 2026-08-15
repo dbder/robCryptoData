@@ -18,8 +18,8 @@ import java.util.concurrent.Executors;
 /**
  * Exchange-independent analysis pipeline: fetches klines for every
  * symbol/interval combination from a {@link KlineSource}, computes the
- * selected {@link Indicator}s (RSI / Stochastic RSI / K / D / MACD, plus
- * MADR which is always on) and writes the results as CSV and XLSX reports.
+ * selected {@link Indicator}s (RSI / Stochastic RSI / K / D / MACD / MADR)
+ * and writes the results as CSV and XLSX reports.
  *
  * <p>Everything exchange-specific comes in through the constructor: the
  * client, the symbols file, the interval names and the indicator selection.
@@ -190,7 +190,9 @@ public final class CryptoAnalysis {
             line.append(String.format(" | MACD: %.4f | Signal: %.4f | Hist: %.4f",
                     row.macd(), row.macdSignal(), row.macdHistogram()));
         }
-        line.append(String.format(" | MADR: %.4f", row.madr()));
+        if (row.has(Indicator.MADR)) {
+            line.append(String.format(" | MADR: %.4f", row.madr()));
+        }
         if (row.has(Indicator.MACD)) {
             line.append(String.format(" | MACDstat: %.4f", row.macdStat()));
         }

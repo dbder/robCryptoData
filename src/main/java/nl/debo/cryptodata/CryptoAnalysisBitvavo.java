@@ -20,7 +20,7 @@ import java.util.List;
  *
  * <p>Which indicators the run reports on comes from the {@code indicators}
  * resource next to {@code symbols-bitvavo}: any combination of RSI,
- * STOCH-RSI, K, D and MACD, one per line (see {@link Indicator}). A file
+ * STOCH-RSI, K, D, MACD and MADR, one per line (see {@link Indicator}). A file
  * of the same name next to the application overrides the resource.</p>
  *
  * <p>Reports land in {@code output/data-bitvavo-local<date>.csv/.xlsx}, so a

@@ -19,14 +19,14 @@ The interesting work happens in three layers:
 ```mermaid
 flowchart TD
     SYM[symbols-bitvavo\none market per line] --> CA[CryptoAnalysis.run]
-    IND[indicators\nRSI, STOCH-RSI, K, D, MACD\nany combination] --> CA
+    IND[indicators\nRSI, STOCH-RSI, K, D, MACD, MADR\nany combination] --> CA
     CA -->|"symbol × interval (1d, 1W, 1M)"| LKS[LocalKlineSource]
     LKS -->|update on demand| IMP[KlineHistoryImporter]
     IMP -->|missing closed candles| API[(Bitvavo REST API)]
     IMP --> CSVSTORE[(output/klines-bitvavo/*.csv)]
     CSVSTORE --> LKS
     LKS -->|"newest 199 closed candles"| IA[IndicatorAnalyzer.latestRow]
-    IA --> ROW[ResultRow: the selected ones of\nRSI, StochRSI, K, D, MACD/Signal/Histogram/MACDstat\nplus MADR; the rest NaN]
+    IA --> ROW[ResultRow: the selected ones of\nRSI, StochRSI, K, D, MACD/Signal/Histogram/MACDstat, MADR;\nthe rest NaN]
     ROW --> OUT1[(data-bitvavo-local&lt;date&gt;.csv)]
     ROW --> OUT2[(data-bitvavo-local&lt;date&gt;.xlsx)]
 ```
@@ -35,8 +35,8 @@ flowchart TD
 
 The `indicators` resource (next to `symbols-bitvavo`) lists the indicators the
 run reports on, one per line, `#` for comments — any combination of `RSI`,
-`STOCH-RSI`, `K`, `D` and `MACD` (`MACD` covers the MACD line, signal line,
-histogram and the normalized MACD stat; MADR is always on). A file of the same
+`STOCH-RSI`, `K`, `D`, `MACD` and `MADR` (`MACD` covers the MACD line, signal
+line, histogram and the normalized MACD stat). A file of the same
 name next to the application overrides the resource, so a run can be
 reconfigured without a rebuild. `Indicator.readSelection` parses it into an
 `EnumSet<Indicator>`; an empty or misspelled selection stops the run at
@@ -50,7 +50,7 @@ The selection travels with the pipeline and every stage honours it:
 | console line | not printed |
 | CSV | column stays, cell is empty (reads back as `NaN`, so old and new files parse alike) |
 | XLSX | value + range columns omitted, conditional formatting shifts along |
-| `ResultRow.score()` | averages only the stats present (RSI/100, StochRSI, K, D, MADR, MACD stat) |
+| `ResultRow.score()` | averages only the selected stats (RSI/100, StochRSI, K, D, MADR, MACD stat); nothing scorable selected → neutral 0.5 |
 
 Every series is still computed — they are cheap, and K and D are built on the
 Stochastic RSI anyway — only what goes into the row is filtered. That does
