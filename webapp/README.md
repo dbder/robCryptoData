@@ -15,8 +15,9 @@ npm run dev      # opens http://localhost:5173
 - **Golden when** — `all fire` (every enabled indicator fires on the same
   candle) or `any fires`.
 - **Trade simulation** — every buy signal opens a trade at that candle's close
-  (only when no trade is open; signals arriving while one is open are skipped
-  and shown with a gold outline). Every later candle is judged at its close:
+  (with **skip signal if trade is active** checked — the default — only when no
+  trade is open; skipped signals get a gold outline. Unchecked, every signal
+  opens its own trade with its own stop/target). Every later candle is judged at its close:
   closes at or below −8% (stop) or at or above +25% (target) sell **at that
   close**, so a candle that closes −10% books −10%. A 0.25% fee is charged on
   the buy and again on the sell. Thresholds, amount per trade (default €1000)
@@ -24,7 +25,7 @@ npm run dev      # opens http://localhost:5173
   (fees included), entry/stop/target lines mark the open trade, the footer sums
   realized P/L (plus the compounded % for reference) and *show log* lists every
   trade.
-- The selection lives in the URL (`?market=BTC-EUR&interval=1d&ind=rsi,macd&mode=any&stop=8&target=25&stake=1000&fee=0.25`),
+- The selection lives in the URL (`?market=BTC-EUR&interval=1d&ind=rsi,macd&mode=any&stop=8&target=25&stake=1000&fee=0.25&skip=1`),
   so a view can be bookmarked or reloaded.
 
 ## Buy rules (`src/signals.js`)

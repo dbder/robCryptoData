@@ -69,3 +69,9 @@ button.link {
 .trade-log th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 500; }
 .trade-log th:first-child, .trade-log td:first-child { text-align: left; }
 .trade-log tr.open td { color: var(--gold); }
+
+label.check {
+  display: flex; align-items: center; gap: 6px; text-transform: none; letter-spacing: 0;
+  font-size: 14px; color: var(--text); cursor: pointer;
+}
+label.check input { accent-color: var(--gold); width: 15px; height: 15px; }

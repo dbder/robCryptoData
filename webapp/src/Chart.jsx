@@ -124,8 +124,7 @@ export default function Chart({ candles, series, buy, enabled, sim }) {
   useEffect(() => {
     const cs = candleSeriesRef.current;
     if (!cs) return;
-    const bought = new Set(sim.trades.map((t) => t.entryIndex));
-    if (sim.open) bought.add(sim.open.entryIndex);
+    const bought = new Set([...sim.trades, ...sim.openTrades].map((t) => t.entryIndex));
     const skipped = new Set(sim.skipped);
     // Clear first: lightweight-charts (5.x) leaves a stale time-scale point list when
     // setData() replaces same-time data on the only series in the chart, and the next
@@ -157,21 +156,21 @@ export default function Chart({ candles, series, buy, enabled, sim }) {
         color: t.reason === 'target' ? COLORS.up : COLORS.down, text: `${t.eur > 0 ? "+" : t.eur < 0 ? "−" : ""}€${Math.abs(t.eur).toFixed(0)}`,
       });
     }
-    if (sim.open) {
-      markers.push({ time: toTime(candles[sim.open.entryIndex].openTime), position: 'belowBar', shape: 'arrowUp', color: COLORS.gold, text: 'buy (open)' });
+    for (const t of sim.openTrades) {
+      markers.push({ time: toTime(candles[t.entryIndex].openTime), position: 'belowBar', shape: 'arrowUp', color: COLORS.gold, text: 'buy (open)' });
     }
     markers.sort((a, b) => a.time - b.time);
     markersRef.current.setMarkers(markers);
 
     for (const l of priceLinesRef.current) cs.removePriceLine(l);
     priceLinesRef.current = [];
-    if (sim.open) {
-      const mk = (price, color, title) => cs.createPriceLine({ price, color, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title });
-      priceLinesRef.current.push(
-        mk(sim.open.entry, COLORS.gold, 'entry'),
-        mk(sim.open.stopPrice, COLORS.down, 'stop'),
-        mk(sim.open.targetPrice, COLORS.up, 'target'),
-      );
+    const mk = (price, color, title) => cs.createPriceLine({ price, color, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title });
+    // One open trade: entry + stop + target. Several: entry lines only, to keep the price scale readable.
+    for (const t of sim.openTrades) {
+      priceLinesRef.current.push(mk(t.entry, COLORS.gold, 'entry'));
+      if (sim.openTrades.length === 1) {
+        priceLinesRef.current.push(mk(t.stopPrice, COLORS.down, 'stop'), mk(t.targetPrice, COLORS.up, 'target'));
+      }
     }
   }, [candles, sim]);
 

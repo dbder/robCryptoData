@@ -6,7 +6,9 @@
 //   sold at that close. So a candle that closes −10% books −10%, one that closes
 //   +30% books +30% — not the threshold.
 // - A fee (default 0.25%) is paid on the buy and again on the sell.
-// - Signals that arrive while a trade is open are ignored (reported as `skipped`).
+// - With `skipWhileOpen` (default) signals that arrive while a trade is open are
+//   ignored (reported as `skipped`); without it every signal opens its own trade,
+//   each with its own stop/target.
 
 export const DEFAULT_STOP_LOSS = 0.08;    // sell if the candle closes 8% or more below entry
 export const DEFAULT_TAKE_PROFIT = 0.25;  // sell if the candle closes 25% or more above entry
@@ -25,38 +27,38 @@ export function simulateTrades(candles, buy, {
   takeProfit = DEFAULT_TAKE_PROFIT,
   stake = DEFAULT_STAKE_EUR,
   fee = DEFAULT_FEE,
+  skipWhileOpen = true,
 } = {}) {
   const trades = [];
   const skipped = [];
-  let open = null;
+  let opens = [];   // open trades, oldest first
 
   for (let i = 0; i < candles.length; i++) {
     const c = candles[i];
 
-    if (open) {
+    opens = opens.filter((open) => {
       const move = c.close / open.entry - 1;
       const reason = move <= -stopLoss ? 'stop' : move >= takeProfit ? 'target' : null;
-      if (reason) {
-        const eur = tradeResultEur(stake, open.entry, c.close, fee);
-        trades.push({ ...open, exitIndex: i, exit: c.close, reason, move, eur, pct: eur / stake });
-        open = null;
-      }
-    }
+      if (!reason) return true;
+      const eur = tradeResultEur(stake, open.entry, c.close, fee);
+      trades.push({ ...open, exitIndex: i, exit: c.close, reason, move, eur, pct: eur / stake });
+      return false;
+    });
 
     if (buy[i]) {
-      if (open) skipped.push(i);
-      else open = { entryIndex: i, entry: c.close };
+      if (skipWhileOpen && opens.length > 0) skipped.push(i);
+      else opens.push({ entryIndex: i, entry: c.close });
     }
   }
+  trades.sort((a, b) => a.entryIndex - b.entryIndex || a.exitIndex - b.exitIndex);
 
   const wins = trades.filter((t) => t.eur > 0).length;
   const eur = trades.reduce((sum, t) => sum + t.eur, 0);   // realized P/L, `stake` per trade, fees included
   const compounded = trades.reduce((acc, t) => acc * (1 + t.pct), 1) - 1;
-  let openTrade = null;
-  if (open) {
-    const last = candles[candles.length - 1];
+  const last = candles[candles.length - 1];
+  const openTrades = opens.map((open) => {
     const unrealized = tradeResultEur(stake, open.entry, last.close, fee);
-    openTrade = {
+    return {
       ...open,
       stopPrice: open.entry * (1 - stopLoss),
       targetPrice: open.entry * (1 + takeProfit),
@@ -64,7 +66,12 @@ export function simulateTrades(candles, buy, {
       eur: unrealized,            // as if sold at the last close, fees included
       pct: unrealized / stake,
     };
-  }
+  });
+  const openEur = openTrades.reduce((sum, t) => sum + t.eur, 0);
 
-  return { trades, skipped, open: openTrade, wins, losses: trades.length - wins, compounded, eur, stake, fee };
+  return {
+    trades, skipped, openTrades, openEur,
+    open: openTrades[0] ?? null,   // oldest open trade (convenience for single-position mode)
+    wins, losses: trades.length - wins, compounded, eur, stake, fee,
+  };
 }

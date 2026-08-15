@@ -19,6 +19,7 @@ function fromUrl() {
     targetPct: numOr(q.get('target'), DEFAULT_TAKE_PROFIT * 100),
     stake: numOr(q.get('stake'), DEFAULT_STAKE_EUR),
     feePct: numOr(q.get('fee'), DEFAULT_FEE * 100),
+    skipWhileOpen: q.get('skip') !== '0',
   };
 }
 function numOrZero(v, fallback) {
@@ -45,13 +46,14 @@ export default function App() {
   const [targetPct, setTargetPct] = useState(initial.targetPct);
   const [stake, setStake] = useState(initial.stake);
   const [feePct, setFeePct] = useState(initial.feePct);
+  const [skipWhileOpen, setSkipWhileOpen] = useState(initial.skipWhileOpen);
   const [showTrades, setShowTrades] = useState(false);
 
   // Keep the URL in sync with the selection.
   useEffect(() => {
-    const q = new URLSearchParams({ market, interval, ind: enabled.join(','), mode, stop: stopPct, target: targetPct, stake, fee: feePct });
+    const q = new URLSearchParams({ market, interval, ind: enabled.join(','), mode, stop: stopPct, target: targetPct, stake, fee: feePct, skip: skipWhileOpen ? '1' : '0' });
     window.history.replaceState(null, '', `?${q}`);
-  }, [market, interval, enabled, mode, stopPct, targetPct, stake, feePct]);
+  }, [market, interval, enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen]);
 
   // Market list from the local candle store.
   useEffect(() => {
@@ -86,8 +88,8 @@ export default function App() {
   const series = useMemo(() => (candles.length ? computeAll(candles) : EMPTY), [candles]);
   const buy = useMemo(() => combineBuySignals(series, enabled, mode), [series, enabled, mode]);
   const sim = useMemo(
-    () => simulateTrades(candles, buy, { stopLoss: stopPct / 100, takeProfit: targetPct / 100, stake, fee: feePct / 100 }),
-    [candles, buy, stopPct, targetPct, stake, feePct]
+    () => simulateTrades(candles, buy, { stopLoss: stopPct / 100, takeProfit: targetPct / 100, stake, fee: feePct / 100, skipWhileOpen }),
+    [candles, buy, stopPct, targetPct, stake, feePct, skipWhileOpen]
   );
 
   const intervals = markets.find((m) => m.market === market)?.intervals ?? ['1d'];
@@ -169,6 +171,10 @@ export default function App() {
             <button className={mode === 'any' ? 'active' : ''} onClick={() => setMode('any')} title="at least one enabled indicator fires">any fires</button>
           </div>
         </div>
+        <label className="check" title="when off, every signal opens its own trade">
+          <input type="checkbox" checked={skipWhileOpen} onChange={(e) => setSkipWhileOpen(e.target.checked)} />
+          skip signal if trade is active
+        </label>
         <div className="group">
           <label>Sell when close</label>
           <span className="pct-input">
@@ -194,7 +200,7 @@ export default function App() {
         <div className="status">
           {enabled.length === 0
             ? <span>turn on an indicator to simulate buys</span>
-            : <TradeSummary sim={sim} onToggleLog={() => setShowTrades((v) => !v)} showTrades={showTrades} />}
+            : <TradeSummary sim={sim} skipWhileOpen={skipWhileOpen} onToggleLog={() => setShowTrades((v) => !v)} showTrades={showTrades} />}
         </div>
       </footer>
     </div>
@@ -205,13 +211,14 @@ const pct = (p) => `${p > 0 ? '+' : ''}${(p * 100).toFixed(1)}%`;
 const eur = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}€${Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
 const dateOf = (c) => new Date(c.openTime).toISOString().slice(0, 16).replace('T', ' ');
 
-function TradeSummary({ sim, onToggleLog, showTrades }) {
+function TradeSummary({ sim, skipWhileOpen, onToggleLog, showTrades }) {
   const n = sim.trades.length;
   return (
     <span className="summary">
       <span className="swatch" /> {n} trade{n === 1 ? '' : 's'}
-      {n > 0 && <> · <span className="win">{sim.wins} target</span> / <span className="loss">{sim.losses} stop</span> · P/L <strong className={sim.eur >= 0 ? 'win' : 'loss'}>{eur(sim.eur)}</strong> <span title="same trades with the proceeds reinvested">({pct(sim.compounded)} compounded)</span></>}
-      {sim.open && <> · <strong>open</strong> {eur(sim.open.eur)} ({pct(sim.open.move)} price)</>}
+      {n > 0 && <> · <span className="win">{sim.wins} target</span> / <span className="loss">{sim.losses} stop</span> · P/L <strong className={sim.eur >= 0 ? 'win' : 'loss'}>{eur(sim.eur)}</strong> {skipWhileOpen && <span title="same trades with the proceeds reinvested">({pct(sim.compounded)} compounded)</span>}</>}
+      {sim.openTrades.length === 1 && <> · <strong>open</strong> {eur(sim.open.eur)} ({pct(sim.open.move)} price)</>}
+      {sim.openTrades.length > 1 && <> · <strong>{sim.openTrades.length} open</strong> {eur(sim.openEur)}</>}
       {sim.skipped.length > 0 && <> · {sim.skipped.length} signal{sim.skipped.length === 1 ? '' : 's'} skipped</>}
       {' '}<button className="link" onClick={onToggleLog}>{showTrades ? 'hide log' : 'show log'}</button>
     </span>
@@ -227,15 +234,15 @@ function TradeLog({ candles, sim }) {
           <tr><th>#</th><th>Buy</th><th>Entry</th><th>Sell</th><th>Exit</th><th>Price move</th><th>P/L (€{sim.stake.toLocaleString('en-US')}, {(sim.fee * 100).toFixed(2)}% fee ×2)</th><th>Candles held</th></tr>
         </thead>
         <tbody>
-          {sim.open && (
-            <tr className="open">
-              <td>open</td><td>{dateOf(candles[sim.open.entryIndex])}</td><td>{fmt(sim.open.entry)}</td>
+          {[...sim.openTrades].reverse().map((t) => (
+            <tr className="open" key={`open-${t.entryIndex}`}>
+              <td>open</td><td>{dateOf(candles[t.entryIndex])}</td><td>{fmt(t.entry)}</td>
               <td>—</td><td>{fmt(candles.at(-1).close)} (last)</td>
-              <td className={sim.open.move >= 0 ? 'win' : 'loss'}>{pct(sim.open.move)}</td>
-              <td className={sim.open.eur >= 0 ? 'win' : 'loss'}>{eur(sim.open.eur)} (open)</td>
-              <td>{candles.length - 1 - sim.open.entryIndex}</td>
+              <td className={t.move >= 0 ? 'win' : 'loss'}>{pct(t.move)}</td>
+              <td className={t.eur >= 0 ? 'win' : 'loss'}>{eur(t.eur)} (open)</td>
+              <td>{candles.length - 1 - t.entryIndex}</td>
             </tr>
-          )}
+          ))}
           {rows.map((t, i) => (
             <tr key={t.entryIndex}>
               <td>{rows.length - i}</td>
@@ -246,7 +253,7 @@ function TradeLog({ candles, sim }) {
               <td>{t.exitIndex - t.entryIndex}</td>
             </tr>
           ))}
-          {rows.length === 0 && !sim.open && <tr><td colSpan="8">no trades</td></tr>}
+          {rows.length === 0 && sim.openTrades.length === 0 && <tr><td colSpan="8">no trades</td></tr>}
         </tbody>
       </table>
     </section>
