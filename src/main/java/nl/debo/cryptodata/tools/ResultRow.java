@@ -4,6 +4,11 @@ package nl.debo.cryptodata.tools;
  * One line of the report: the latest complete indicator values for a
  * symbol/interval combination.
  *
+ * <p>An indicator that was not selected for the run (see {@link Indicator})
+ * is stored as {@link Double#NaN}: the row simply has no value for it, and
+ * {@link #has(Indicator)} says so. Consumers skip such values; the
+ * {@link #score()} averages only what is present.</p>
+ *
  * <p>Besides the raw values it derives coarse "range" labels per indicator so
  * the spreadsheet filter dropdowns offer a handful of buckets instead of one
  * entry per distinct decimal value.
@@ -24,6 +29,22 @@ public record ResultRow(
         double madr,
         double macdStat
 ) {
+
+    /**
+     * Whether this row carries a value for {@code indicator}; false when the
+     * indicator was left out of the run. {@link Indicator#MACD} counts as
+     * present when the MACD line is.
+     */
+    public boolean has(Indicator indicator) {
+        return !Double.isNaN(switch (indicator) {
+            case RSI -> rsi;
+            case STOCH_RSI -> stochRsi;
+            case K -> k;
+            case D -> d;
+            case MACD -> macd;
+            case MADR -> madr;
+        });
+    }
 
     /**
      * Reporting currency of the pair: {@code "EUR"} for EUR-quoted pairs,
@@ -89,12 +110,23 @@ public record ResultRow(
 
     /**
      * Combined 0..1 buy/sell score: the average of every 0..1-scaled
-     * statistic in the row (RSI/100, StochRSI, K, D, MADR, MACD stat), all
-     * oriented the same way. 0 = every indicator says buy, 1 = every
-     * indicator says sell, 0.5 = neutral or mixed.
+     * statistic present in the row (RSI/100, StochRSI, K, D, MADR, MACD
+     * stat), all oriented the same way. 0 = every indicator says buy,
+     * 1 = every indicator says sell, 0.5 = neutral or mixed. Only selected
+     * indicators take part (the others are NaN), so a run on RSI and MADR
+     * scores the average of RSI/100 and MADR; with nothing scorable selected
+     * the score is the neutral 0.5.
      */
     public double score() {
-        return (rsi / 100.0 + stochRsi + k + d + madr + macdStat) / 6.0;
+        double sum = 0;
+        int count = 0;
+        for (double stat : new double[] {rsi / 100.0, stochRsi, k, d, madr, macdStat}) {
+            if (!Double.isNaN(stat)) {
+                sum += stat;
+                count++;
+            }
+        }
+        return count == 0 ? 0.5 : sum / count;
     }
 
     /** Score bucketed in steps of 0.2, e.g. {@code "0.2-0.4"} (0 = buy, 1 = sell). */

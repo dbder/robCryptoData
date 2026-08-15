@@ -2,6 +2,7 @@ package nl.debo.cryptodata;
 
 import nl.debo.cryptodata.tools.BitvavoClient;
 import nl.debo.cryptodata.tools.CryptoAnalysis;
+import nl.debo.cryptodata.tools.Indicator;
 import nl.debo.cryptodata.tools.KlineHistoryImporter;
 import nl.debo.cryptodata.tools.LocalKlineSource;
 import nl.debo.cryptodata.utils.FileUtil;
@@ -33,6 +34,8 @@ import java.util.Scanner;
 public final class CryptoAnalysisBitvavoForDate {
 
     private static final List<String> INTERVALS = List.of("1d", "1W", "1M");
+    /** Resource / file naming the indicators to report on, one per line. */
+    private static final String INDICATORS_FILE = "indicators";
 
     private CryptoAnalysisBitvavoForDate() {
     }
@@ -47,6 +50,7 @@ public final class CryptoAnalysisBitvavoForDate {
                 new LocalKlineSource(klinesDir, new KlineHistoryImporter(new BitvavoClient(), klinesDir), cutoff),
                 "symbols-bitvavo",
                 INTERVALS,
+                Indicator.readSelection(CryptoAnalysisBitvavoForDate.class, INDICATORS_FILE),
                 "data-bitvavo-fordate",
                 date
         ).run();
