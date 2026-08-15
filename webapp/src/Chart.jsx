@@ -6,6 +6,7 @@ import {
   HistogramSeries,
   ColorType,
   CrosshairMode,
+  createSeriesMarkers,
 } from 'lightweight-charts';
 import { RSI_OVERSOLD, STOCH_OVERSOLD } from './signals.js';
 
@@ -84,11 +85,13 @@ const PANES = {
  * Candlestick chart with optional indicator panes underneath.
  * `buy[i]` true → candle i is painted gold.
  */
-export default function Chart({ candles, series, buy, enabled }) {
+export default function Chart({ candles, series, buy, enabled, sim }) {
   const containerRef = useRef(null);
   const chartRef = useRef(null);
   const candleSeriesRef = useRef(null);
   const paneSeriesRef = useRef([]);
+  const markersRef = useRef(null);
+  const priceLinesRef = useRef([]);
 
   // Create the chart once.
   useEffect(() => {
@@ -105,28 +108,72 @@ export default function Chart({ candles, series, buy, enabled }) {
       timeScale: { borderColor: COLORS.grid, timeVisible: true, secondsVisible: false },
     });
     const candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor: COLORS.up, downColor: COLORS.down, borderVisible: false,
+      upColor: COLORS.up, downColor: COLORS.down,
+      borderVisible: true, borderUpColor: COLORS.up, borderDownColor: COLORS.down,
       wickUpColor: COLORS.up, wickDownColor: COLORS.down,
     });
     chartRef.current = chart;
+    if (import.meta.env.DEV) window.__chart = chart; // debugging aid
     candleSeriesRef.current = candleSeries;
+    markersRef.current = createSeriesMarkers(candleSeries, []);
+    if (import.meta.env.DEV) { window.__markers = markersRef.current; window.__cs = candleSeries; }
     return () => { chart.remove(); chartRef.current = null; };
   }, []);
 
-  // Candle data + golden buy candles.
+  // Candle data: executed buys are gold, signals skipped (trade already open) get a gold outline.
   useEffect(() => {
     const cs = candleSeriesRef.current;
     if (!cs) return;
+    const bought = new Set(sim.trades.map((t) => t.entryIndex));
+    if (sim.open) bought.add(sim.open.entryIndex);
+    const skipped = new Set(sim.skipped);
+    // Clear first: lightweight-charts (5.x) leaves a stale time-scale point list when
+    // setData() replaces same-time data on the only series in the chart, and the next
+    // setData() with more series present then drops every point (blank chart).
+    cs.setData([]);
     cs.setData(candles.map((c, i) => {
       const bar = { time: toTime(c.openTime), open: c.open, high: c.high, low: c.low, close: c.close };
-      if (buy[i]) {
+      if (bought.has(i)) {
         bar.color = COLORS.gold;
         bar.wickColor = COLORS.gold;
         bar.borderColor = COLORS.goldBorder;
+      } else if (skipped.has(i)) {
+        bar.borderColor = COLORS.gold;
       }
       return bar;
     }));
-  }, [candles, buy]);
+  }, [candles, buy, sim]);
+
+  // Trade markers + entry/stop/target lines for the open trade.
+  useEffect(() => {
+    const cs = candleSeriesRef.current;
+    if (!cs || !markersRef.current) return;
+    const markers = [];
+    const pct = (p) => `${p > 0 ? '+' : ''}${(p * 100).toFixed(1)}%`;
+    for (const t of sim.trades) {
+      markers.push({ time: toTime(candles[t.entryIndex].openTime), position: 'belowBar', shape: 'arrowUp', color: COLORS.gold, text: 'buy' });
+      markers.push({
+        time: toTime(candles[t.exitIndex].openTime), position: 'aboveBar', shape: 'arrowDown',
+        color: t.reason === 'target' ? COLORS.up : COLORS.down, text: `${t.eur > 0 ? "+" : t.eur < 0 ? "−" : ""}€${Math.abs(t.eur).toFixed(0)}`,
+      });
+    }
+    if (sim.open) {
+      markers.push({ time: toTime(candles[sim.open.entryIndex].openTime), position: 'belowBar', shape: 'arrowUp', color: COLORS.gold, text: 'buy (open)' });
+    }
+    markers.sort((a, b) => a.time - b.time);
+    markersRef.current.setMarkers(markers);
+
+    for (const l of priceLinesRef.current) cs.removePriceLine(l);
+    priceLinesRef.current = [];
+    if (sim.open) {
+      const mk = (price, color, title) => cs.createPriceLine({ price, color, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title });
+      priceLinesRef.current.push(
+        mk(sim.open.entry, COLORS.gold, 'entry'),
+        mk(sim.open.stopPrice, COLORS.down, 'stop'),
+        mk(sim.open.targetPrice, COLORS.up, 'target'),
+      );
+    }
+  }, [candles, sim]);
 
   // Reset the view when the coin/timeframe changes.
   useEffect(() => {

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Chart from './Chart.jsx';
 import { computeAll } from './indicators.js';
 import { INDICATORS, combineBuySignals } from './signals.js';
+import { simulateTrades, DEFAULT_STOP_LOSS, DEFAULT_TAKE_PROFIT, DEFAULT_STAKE_EUR } from './trades.js';
 
 const EMPTY = { rsi: [], stochRsi: [], k: [], d: [], macd: [], signal: [], hist: [] };
 const VALID_IND = INDICATORS.map((i) => i.id);
@@ -14,7 +15,14 @@ function fromUrl() {
     interval: q.get('interval') || '1d',
     enabled: (q.get('ind') || '').split(',').filter((x) => VALID_IND.includes(x)),
     mode: q.get('mode') === 'any' ? 'any' : 'all',
+    stopPct: numOr(q.get('stop'), DEFAULT_STOP_LOSS * 100),
+    targetPct: numOr(q.get('target'), DEFAULT_TAKE_PROFIT * 100),
+    stake: numOr(q.get('stake'), DEFAULT_STAKE_EUR),
   };
+}
+function numOr(v, fallback) {
+  const n = Number(v);
+  return v !== null && Number.isFinite(n) && n > 0 ? n : fallback;
 }
 const initial = fromUrl();
 
@@ -28,12 +36,16 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [enabled, setEnabled] = useState(initial.enabled);
   const [mode, setMode] = useState(initial.mode);
+  const [stopPct, setStopPct] = useState(initial.stopPct);
+  const [targetPct, setTargetPct] = useState(initial.targetPct);
+  const [stake, setStake] = useState(initial.stake);
+  const [showTrades, setShowTrades] = useState(false);
 
   // Keep the URL in sync with the selection.
   useEffect(() => {
-    const q = new URLSearchParams({ market, interval, ind: enabled.join(','), mode });
+    const q = new URLSearchParams({ market, interval, ind: enabled.join(','), mode, stop: stopPct, target: targetPct, stake });
     window.history.replaceState(null, '', `?${q}`);
-  }, [market, interval, enabled, mode]);
+  }, [market, interval, enabled, mode, stopPct, targetPct, stake]);
 
   // Market list from the local candle store.
   useEffect(() => {
@@ -67,7 +79,10 @@ export default function App() {
 
   const series = useMemo(() => (candles.length ? computeAll(candles) : EMPTY), [candles]);
   const buy = useMemo(() => combineBuySignals(series, enabled, mode), [series, enabled, mode]);
-  const buyCount = useMemo(() => buy.filter(Boolean).length, [buy]);
+  const sim = useMemo(
+    () => simulateTrades(candles, buy, { stopLoss: stopPct / 100, takeProfit: targetPct / 100, stake }),
+    [candles, buy, stopPct, targetPct, stake]
+  );
 
   const intervals = markets.find((m) => m.market === market)?.intervals ?? ['1d'];
   const visibleMarkets = markets.filter((m) =>
@@ -122,8 +137,10 @@ export default function App() {
       </header>
 
       <main className="chart-wrap">
-        <Chart candles={candles} series={series} buy={buy} enabled={enabled} />
+        <Chart candles={candles} series={series} buy={buy} enabled={enabled} sim={sim} />
       </main>
+
+      {showTrades && <TradeLog candles={candles} sim={sim} />}
 
       <footer className="toolbar">
         <div className="group">
@@ -146,13 +163,83 @@ export default function App() {
             <button className={mode === 'any' ? 'active' : ''} onClick={() => setMode('any')} title="at least one enabled indicator fires">any fires</button>
           </div>
         </div>
+        <div className="group">
+          <label>Sell at</label>
+          <span className="pct-input">
+            <input type="number" min="0.5" step="0.5" value={stopPct}
+              onChange={(e) => setStopPct(numOr(e.target.value, stopPct))} /> % loss
+          </span>
+          <span className="pct-input">
+            <input type="number" min="0.5" step="0.5" value={targetPct}
+              onChange={(e) => setTargetPct(numOr(e.target.value, targetPct))} /> % gain
+          </span>
+        </div>
+        <div className="group">
+          <label>Per trade</label>
+          <span className="pct-input">
+            € <input type="number" min="1" step="100" value={stake}
+              onChange={(e) => setStake(numOr(e.target.value, stake))} />
+          </span>
+        </div>
         <div className="status">
           {enabled.length === 0
-            ? <span>turn on an indicator to highlight buy candles</span>
-            : <span><span className="swatch" /> {buyCount} golden candle{buyCount === 1 ? '' : 's'}</span>}
+            ? <span>turn on an indicator to simulate buys</span>
+            : <TradeSummary sim={sim} onToggleLog={() => setShowTrades((v) => !v)} showTrades={showTrades} />}
         </div>
       </footer>
     </div>
+  );
+}
+
+const pct = (p) => `${p > 0 ? '+' : ''}${(p * 100).toFixed(1)}%`;
+const eur = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}€${Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+const dateOf = (c) => new Date(c.openTime).toISOString().slice(0, 16).replace('T', ' ');
+
+function TradeSummary({ sim, onToggleLog, showTrades }) {
+  const n = sim.trades.length;
+  return (
+    <span className="summary">
+      <span className="swatch" /> {n} trade{n === 1 ? '' : 's'}
+      {n > 0 && <> · <span className="win">{sim.wins} target</span> / <span className="loss">{sim.losses} stop</span> · P/L <strong className={sim.eur >= 0 ? 'win' : 'loss'}>{eur(sim.eur)}</strong> <span title="same trades with the proceeds reinvested">({pct(sim.compounded)} compounded)</span></>}
+      {sim.open && <> · <strong>open</strong> {eur(sim.open.eur)} ({pct(sim.open.pct)})</>}
+      {sim.skipped.length > 0 && <> · {sim.skipped.length} signal{sim.skipped.length === 1 ? '' : 's'} skipped</>}
+      {' '}<button className="link" onClick={onToggleLog}>{showTrades ? 'hide log' : 'show log'}</button>
+    </span>
+  );
+}
+
+function TradeLog({ candles, sim }) {
+  const rows = [...sim.trades].reverse();
+  return (
+    <section className="trade-log">
+      <table>
+        <thead>
+          <tr><th>#</th><th>Buy</th><th>Entry</th><th>Sell</th><th>Exit</th><th>Result</th><th>P/L (€{sim.stake.toLocaleString('en-US')})</th><th>Candles held</th></tr>
+        </thead>
+        <tbody>
+          {sim.open && (
+            <tr className="open">
+              <td>open</td><td>{dateOf(candles[sim.open.entryIndex])}</td><td>{fmt(sim.open.entry)}</td>
+              <td>—</td><td>{fmt(candles.at(-1).close)} (last)</td>
+              <td className={sim.open.pct >= 0 ? 'win' : 'loss'}>{pct(sim.open.pct)}</td>
+              <td className={sim.open.eur >= 0 ? 'win' : 'loss'}>{eur(sim.open.eur)} (open)</td>
+              <td>{candles.length - 1 - sim.open.entryIndex}</td>
+            </tr>
+          )}
+          {rows.map((t, i) => (
+            <tr key={t.entryIndex}>
+              <td>{rows.length - i}</td>
+              <td>{dateOf(candles[t.entryIndex])}</td><td>{fmt(t.entry)}</td>
+              <td>{dateOf(candles[t.exitIndex])}</td><td>{fmt(t.exit)}</td>
+              <td className={t.pct >= 0 ? 'win' : 'loss'}>{pct(t.pct)} ({t.reason})</td>
+              <td className={t.eur >= 0 ? 'win' : 'loss'}>{eur(t.eur)}</td>
+              <td>{t.exitIndex - t.entryIndex}</td>
+            </tr>
+          ))}
+          {rows.length === 0 && !sim.open && <tr><td colSpan="8">no trades</td></tr>}
+        </tbody>
+      </table>
+    </section>
   );
 }
 

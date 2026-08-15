@@ -50,3 +50,22 @@ button.indicator.on { background: var(--gold); border-color: var(--gold); color:
 }
 .chart-wrap { flex: 1; min-height: 0; position: relative; }
 .chart { position: absolute; inset: 0; }
+
+.pct-input input {
+  width: 64px; background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 6px; font: inherit; text-align: right;
+}
+.pct-input { color: var(--muted); }
+.win { color: #26a69a; }
+.loss { color: #ef5350; }
+button.link {
+  background: none; border: none; color: var(--accent); padding: 0 4px; text-decoration: underline;
+}
+.trade-log {
+  max-height: 200px; overflow: auto; background: var(--panel); border-top: 1px solid var(--border);
+}
+.trade-log table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.trade-log th, .trade-log td { text-align: right; padding: 4px 12px; white-space: nowrap; }
+.trade-log th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 500; }
+.trade-log th:first-child, .trade-log td:first-child { text-align: left; }
+.trade-log tr.open td { color: var(--gold); }
