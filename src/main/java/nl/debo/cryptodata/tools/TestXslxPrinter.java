@@ -47,7 +47,9 @@ public final class TestXslxPrinter {
                 : fileName);
         String dateStr = base.startsWith("data") ? base.substring(4) : base;
 
+        // The CSV does not say which indicators the run selected; whatever
+        // has a value in some row was selected.
         var xlsxPath = csvPath.resolveSibling(base + ".xlsx");
-        XslxPrinter.write(xlsxPath, dateStr, results);
+        XslxPrinter.write(xlsxPath, dateStr, results, Indicator.presentIn(results));
     }
 }

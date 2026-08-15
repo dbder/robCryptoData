@@ -15,9 +15,11 @@ import java.util.Locale;
 /**
  * Reads and writes the
  * {@code symbol,interval,begin,time,close,rsi,stochRsi,k,d,macd,macdSignal,macdHistogram,madr,macdStat}
- * CSV produced by {@link CryptoAnalysis}. Older files may end with a news
- * headline column (possibly containing commas); it is parsed with a field
- * limit and discarded.
+ * CSV produced by {@link CryptoAnalysis}. The column layout is fixed; an
+ * indicator that was left out of the run has an empty cell, which reads back
+ * as {@link Double#NaN}. Older files may end with a news headline column
+ * (possibly containing commas); it is parsed with a field limit and
+ * discarded.
  */
 public final class CsvUtil {
 
@@ -39,29 +41,28 @@ public final class CsvUtil {
     }
 
     /**
-     * Appends the given rows to the CSV file.
+     * Appends the given rows to the CSV file. NaN indicator values (left out
+     * of the run) are written as empty cells.
      */
     public static void appendResultRows(Path csvPath, List<ResultRow> results) {
         try (var writer = Files.newBufferedWriter(csvPath, StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE, StandardOpenOption.APPEND)) {
             for (var r : results) {
-                var csvLine = String.format(
-                        Locale.US,
-                        "%s,%s,%s,%s,%.2f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f",
+                var csvLine = String.join(",",
                         r.symbol(),
                         r.interval(),
                         r.begin(),
                         r.time(),
-                        r.close(),
-                        r.rsi(),
-                        r.stochRsi(),
-                        r.k(),
-                        r.d(),
-                        r.macd(),
-                        r.macdSignal(),
-                        r.macdHistogram(),
-                        r.madr(),
-                        r.macdStat()
+                        String.format(Locale.US, "%.2f", r.close()),
+                        cell(r.rsi()),
+                        cell(r.stochRsi()),
+                        cell(r.k()),
+                        cell(r.d()),
+                        cell(r.macd()),
+                        cell(r.macdSignal()),
+                        cell(r.macdHistogram()),
+                        cell(r.madr()),
+                        cell(r.macdStat())
                 );
                 writer.write(csvLine);
                 writer.newLine();
@@ -71,12 +72,18 @@ public final class CsvUtil {
         }
     }
 
+    /** Four-decimal cell, or empty for NaN. */
+    private static String cell(double value) {
+        return Double.isNaN(value) ? "" : String.format(Locale.US, "%.4f", value);
+    }
+
     /**
      * Parses the CSV into {@link ResultRow} values. The first line
      * is treated as a header and skipped; malformed lines are reported and skipped.
-     * Older files are accepted: missing MACD numbers default to zero, missing
-     * madr/macdStat to the neutral 0.5, and the news column that older
-     * layouts end with is discarded.
+     * Empty indicator cells read back as NaN. Older files are accepted:
+     * missing MACD numbers default to zero, missing madr/macdStat to the
+     * neutral 0.5, and the news column that older layouts end with is
+     * discarded.
      */
     public static List<ResultRow> readResultRows(Path csvPath) throws IOException {
         var rows = new ArrayList<ResultRow>();
@@ -111,10 +118,10 @@ public final class CsvUtil {
             // news and is discarded.
             double madr = 0.5;
             double macdStat = 0.5;
-            if (f.length > 11 && isNumeric(f[11])) {
-                madr = Double.parseDouble(f[11]);
-                if (f.length > 12 && isNumeric(f[12])) {
-                    macdStat = Double.parseDouble(f[12]);
+            if (f.length > 11 && isCell(f[11])) {
+                madr = parseCell(f[11]);
+                if (f.length > 12 && isCell(f[12])) {
+                    macdStat = parseCell(f[12]);
                 }
             }
 
@@ -124,19 +131,29 @@ public final class CsvUtil {
                     begin,
                     f[2],
                     Double.parseDouble(f[3]),
-                    Double.parseDouble(f[4]),
-                    Double.parseDouble(f[5]),
-                    Double.parseDouble(f[6]),
-                    Double.parseDouble(f[7]),
-                    f.length > 8 ? Double.parseDouble(f[8]) : 0.0,
-                    f.length > 9 ? Double.parseDouble(f[9]) : 0.0,
-                    f.length > 10 ? Double.parseDouble(f[10]) : 0.0,
+                    parseCell(f[4]),
+                    parseCell(f[5]),
+                    parseCell(f[6]),
+                    parseCell(f[7]),
+                    f.length > 8 ? parseCell(f[8]) : 0.0,
+                    f.length > 9 ? parseCell(f[9]) : 0.0,
+                    f.length > 10 ? parseCell(f[10]) : 0.0,
                     madr,
                     macdStat
             ));
         }
 
         return rows;
+    }
+
+    /** A number, or NaN for an empty cell (indicator left out of the run). */
+    private static double parseCell(String value) {
+        return value.isEmpty() ? Double.NaN : Double.parseDouble(value);
+    }
+
+    /** True for a numeric or empty cell — anything but the free-text news column of old files. */
+    private static boolean isCell(String value) {
+        return value.isEmpty() || isNumeric(value);
     }
 
     private static boolean isNumeric(String value) {

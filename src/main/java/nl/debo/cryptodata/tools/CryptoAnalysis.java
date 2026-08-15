@@ -10,18 +10,19 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
  * Exchange-independent analysis pipeline: fetches klines for every
- * symbol/interval combination from a {@link KlineSource}, computes
- * RSI / Stochastic RSI / MACD indicators and writes the results as CSV and
- * XLSX reports.
+ * symbol/interval combination from a {@link KlineSource}, computes the
+ * selected {@link Indicator}s (RSI / Stochastic RSI / K / D / MACD, plus
+ * MADR which is always on) and writes the results as CSV and XLSX reports.
  *
  * <p>Everything exchange-specific comes in through the constructor: the
- * client, the symbols file and the interval names.
+ * client, the symbols file, the interval names and the indicator selection.
  */
 public final class CryptoAnalysis {
 
@@ -39,6 +40,7 @@ public final class CryptoAnalysis {
     private final KlineSource client;
     private final String symbolsFileName;
     private final List<String> intervals;
+    private final Set<Indicator> indicators;
     private final String outputBaseName;
     private final LocalDate reportDate;
 
@@ -47,15 +49,18 @@ public final class CryptoAnalysis {
      * @param symbolsFileName name of the symbols file/resource, one symbol per
      *                        line in the exchange's own format
      * @param intervals      interval names in the exchange's own format
+     * @param indicators     the indicators to report on, e.g. from
+     *                       {@link Indicator#readSelection}
      * @param outputBaseName prefix of the report files written to {@code output/}
      */
     public CryptoAnalysis(
             KlineSource client,
             String symbolsFileName,
             List<String> intervals,
+            Set<Indicator> indicators,
             String outputBaseName
     ) {
-        this(client, symbolsFileName, intervals, outputBaseName, LocalDate.now());
+        this(client, symbolsFileName, intervals, indicators, outputBaseName, LocalDate.now());
     }
 
     /**
@@ -68,12 +73,14 @@ public final class CryptoAnalysis {
             KlineSource client,
             String symbolsFileName,
             List<String> intervals,
+            Set<Indicator> indicators,
             String outputBaseName,
             LocalDate reportDate
     ) {
         this.client = client;
         this.symbolsFileName = symbolsFileName;
         this.intervals = intervals;
+        this.indicators = Set.copyOf(indicators);
         this.outputBaseName = outputBaseName;
         this.reportDate = reportDate;
     }
@@ -82,7 +89,7 @@ public final class CryptoAnalysis {
         // Normalization for the MADR and MACD 0..1 stats: swap either for a
         // StochasticNormalizer or ClampNormalizer to compare strategies.
         var normalizer = new ZScoreNormalizer(NORMALIZER_WINDOW);
-        var analyzer = new IndicatorAnalyzer(RSI_PERIOD, STOCH_RSI_PERIOD, K_PERIOD, D_PERIOD,
+        var analyzer = new IndicatorAnalyzer(indicators, RSI_PERIOD, STOCH_RSI_PERIOD, K_PERIOD, D_PERIOD,
                 MACD_FAST_PERIOD, MACD_SLOW_PERIOD, MACD_SIGNAL_PERIOD,
                 MADR_SMA_PERIOD, normalizer, normalizer);
 
@@ -107,7 +114,7 @@ public final class CryptoAnalysis {
 
         System.out.println(ConsoleColor.green(
                 "Crypto analysis started: " + activeSymbols.size() + " symbols x "
-                        + intervals.size() + " intervals"));
+                        + intervals.size() + " intervals, indicators: " + Indicator.describe(indicators)));
 
         List<ResultRow> results = Collections.synchronizedList(new ArrayList<>());
 
@@ -137,7 +144,7 @@ public final class CryptoAnalysis {
                 .thenComparing(row -> intervalMillis(row.interval()), Comparator.reverseOrder()));
 
         CsvUtil.appendResultRows(csvPath, results);
-        XslxPrinter.write(xlsxPath, dateStr, results);
+        XslxPrinter.write(xlsxPath, dateStr, results, indicators);
 
         System.out.println(ConsoleColor.green(
                 "Crypto analysis finished: " + results.size() + " rows -> " + csvPath + " and " + xlsxPath));
@@ -159,23 +166,34 @@ public final class CryptoAnalysis {
         };
     }
 
+    /** One console line per row; indicators left out of the run are not printed. */
     private static void printRow(ResultRow row) {
-        System.out.printf(
-                "%s | %s | %s | %s | Close: %.2f | RSI: %.2f | StochRSI: %.4f | K: %.4f | D: %.4f | MACD: %.4f | Signal: %.4f | Hist: %.4f | MADR: %.4f | MACDstat: %.4f%n",
-                row.symbol(),
-                row.interval(),
-                row.begin(),
-                row.time(),
-                row.close(),
-                row.rsi(),
-                row.stochRsi(),
-                row.k(),
-                row.d(),
-                row.macd(),
-                row.macdSignal(),
-                row.macdHistogram(),
-                row.madr(),
-                row.macdStat()
-        );
+        var line = new StringBuilder()
+                .append(row.symbol()).append(" | ")
+                .append(row.interval()).append(" | ")
+                .append(row.begin()).append(" | ")
+                .append(row.time())
+                .append(String.format(" | Close: %.2f", row.close()));
+        if (row.has(Indicator.RSI)) {
+            line.append(String.format(" | RSI: %.2f", row.rsi()));
+        }
+        if (row.has(Indicator.STOCH_RSI)) {
+            line.append(String.format(" | StochRSI: %.4f", row.stochRsi()));
+        }
+        if (row.has(Indicator.K)) {
+            line.append(String.format(" | K: %.4f", row.k()));
+        }
+        if (row.has(Indicator.D)) {
+            line.append(String.format(" | D: %.4f", row.d()));
+        }
+        if (row.has(Indicator.MACD)) {
+            line.append(String.format(" | MACD: %.4f | Signal: %.4f | Hist: %.4f",
+                    row.macd(), row.macdSignal(), row.macdHistogram()));
+        }
+        line.append(String.format(" | MADR: %.4f", row.madr()));
+        if (row.has(Indicator.MACD)) {
+            line.append(String.format(" | MACDstat: %.4f", row.macdStat()));
+        }
+        System.out.println(line);
     }
 }

@@ -8,6 +8,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -23,32 +25,111 @@ import java.util.zip.ZipOutputStream;
  *     <li>tuned column widths and number formats;</li>
  *     <li>banded (zebra) rows and colour-coded RSI / StochRSI cells.</li>
  * </ul>
+ *
+ * <p>The columns are described once in {@link #COLUMNS}; the indicator
+ * columns carry the {@link Indicator} they belong to and are only rendered
+ * when that indicator is part of the run, so a report on RSI and MACD alone
+ * has no StochRSI / K / D columns at all.</p>
  */
 public final class XslxPrinter {
 
     private XslxPrinter() {
     }
 
-    private static final String[] HEADERS = {
-            "Symbol", "EUR/USD", "Interval", "Begin", "Time", "Close",
-            "RSI", "RSI Range", "StochRSI", "StochRSI Range", "K", "K Range", "D", "D Range",
-            "MACD", "MACD Range", "Signal", "Signal Range", "Histogram", "Hist Range",
-            "MADR", "MADR Range", "MACD Stat", "MACD Stat Range", "Score", "Score Range"
-    };
+    /** How a column's cells are styled: text left, text centered, or a number with 2 or 4 decimals. */
+    private enum Kind { TEXT, CENTER, TWO_DEC, FOUR_DEC }
 
-    // Column widths (in Excel "characters" units).
-    private static final double[] COLUMN_WIDTHS = {
-            14, 10, 11, 14, 26, 15, 10, 11, 12, 15, 10, 10, 10, 10, 12, 13, 12, 13, 12, 12, 10, 12, 11, 15, 10, 12
-    };
+    /**
+     * Conditional formatting of a numeric column: cells matching
+     * {@code redOp redValue} turn red, cells matching {@code greenOp
+     * greenValue} turn green (SpreadsheetML {@code cellIs} operators).
+     */
+    private record Highlight(String redOp, double redValue, String greenOp, double greenValue) {
+
+        /** Sell side (≥ {@code sellFrom}) red, buy side (≤ {@code buyTo}) green. */
+        static Highlight band(double sellFrom, double buyTo) {
+            return new Highlight("greaterThanOrEqual", sellFrom, "lessThanOrEqual", buyTo);
+        }
+
+        /** Above zero green (bullish), below zero red (bearish). */
+        static Highlight aroundZero() {
+            return new Highlight("lessThan", 0, "greaterThan", 0);
+        }
+    }
+
+    /**
+     * One spreadsheet column: header, width (Excel "characters"), cell
+     * style, the {@link Indicator} it depends on ({@code null} = always
+     * shown), the value per row (a {@link String} or a {@link Double}) and
+     * optional conditional formatting.
+     */
+    private record Column(String header, double width, Kind kind, Indicator gate,
+                          Function<ResultRow, Object> value, Highlight highlight) {
+
+        static Column text(String header, double width, Function<ResultRow, String> value) {
+            return new Column(header, width, Kind.TEXT, null, value::apply, null);
+        }
+
+        static Column center(String header, double width, Indicator gate, Function<ResultRow, String> value) {
+            return new Column(header, width, Kind.CENTER, gate, value::apply, null);
+        }
+
+        static Column number(String header, double width, Kind kind, Indicator gate,
+                             Function<ResultRow, Double> value, Highlight highlight) {
+            return new Column(header, width, kind, gate, value::apply, highlight);
+        }
+
+        boolean shownFor(Set<Indicator> indicators) {
+            return gate == null || indicators.contains(gate);
+        }
+    }
+
+    // RSI is 0..100: overbought (>=70) red, oversold (<=30) green. The 0..1
+    // stats (StochRSI, MADR, MACD stat) flag >=0.8 / <=0.2. The score
+    // averages several stats, so extremes are diluted: flag confluence at
+    // >=0.7 (sell) and <=0.3 (buy) instead.
+    private static final List<Column> COLUMNS = List.of(
+            Column.text("Symbol", 14, ResultRow::symbol),
+            Column.center("EUR/USD", 10, null, ResultRow::quoteCurrency),
+            Column.center("Interval", 11, null, ResultRow::interval),
+            Column.center("Begin", 14, null, ResultRow::begin),
+            Column.text("Time", 26, ResultRow::time),
+            Column.number("Close", 15, Kind.TWO_DEC, null, ResultRow::close, null),
+            Column.number("RSI", 10, Kind.FOUR_DEC, Indicator.RSI, ResultRow::rsi, Highlight.band(70, 30)),
+            Column.center("RSI Range", 11, Indicator.RSI, ResultRow::rsiRange),
+            Column.number("StochRSI", 12, Kind.FOUR_DEC, Indicator.STOCH_RSI, ResultRow::stochRsi, Highlight.band(0.8, 0.2)),
+            Column.center("StochRSI Range", 15, Indicator.STOCH_RSI, ResultRow::stochRsiRange),
+            Column.number("K", 10, Kind.FOUR_DEC, Indicator.K, ResultRow::k, null),
+            Column.center("K Range", 10, Indicator.K, ResultRow::kRange),
+            Column.number("D", 10, Kind.FOUR_DEC, Indicator.D, ResultRow::d, null),
+            Column.center("D Range", 10, Indicator.D, ResultRow::dRange),
+            Column.number("MACD", 12, Kind.FOUR_DEC, Indicator.MACD, ResultRow::macd, null),
+            Column.center("MACD Range", 13, Indicator.MACD, ResultRow::macdRange),
+            Column.number("Signal", 12, Kind.FOUR_DEC, Indicator.MACD, ResultRow::macdSignal, null),
+            Column.center("Signal Range", 13, Indicator.MACD, ResultRow::macdSignalRange),
+            Column.number("Histogram", 12, Kind.FOUR_DEC, Indicator.MACD, ResultRow::macdHistogram, Highlight.aroundZero()),
+            Column.center("Hist Range", 12, Indicator.MACD, ResultRow::macdHistogramRange),
+            Column.number("MADR", 10, Kind.FOUR_DEC, null, ResultRow::madr, Highlight.band(0.8, 0.2)),
+            Column.center("MADR Range", 12, null, ResultRow::madrRange),
+            Column.number("MACD Stat", 11, Kind.FOUR_DEC, Indicator.MACD, ResultRow::macdStat, Highlight.band(0.8, 0.2)),
+            Column.center("MACD Stat Range", 15, Indicator.MACD, ResultRow::macdStatRange),
+            Column.number("Score", 10, Kind.FOUR_DEC, null, ResultRow::score, Highlight.band(0.7, 0.3)),
+            Column.center("Score Range", 12, null, ResultRow::scoreRange)
+    );
 
     /**
      * Generates the spreadsheet.
      *
-     * @param xlsxPath destination file
-     * @param dateStr  report date, used in document metadata
-     * @param results  rows to render
+     * @param xlsxPath   destination file
+     * @param dateStr    report date, used in document metadata
+     * @param results    rows to render
+     * @param indicators the indicators of the run; columns of other
+     *                   indicators are left out
      */
-    public static void write(Path xlsxPath, String dateStr, List<ResultRow> results) {
+    public static void write(Path xlsxPath, String dateStr, List<ResultRow> results, Set<Indicator> indicators) {
+        List<Column> columns = COLUMNS.stream()
+                .filter(c -> c.shownFor(indicators))
+                .toList();
         try (var zipOut = new ZipOutputStream(Files.newOutputStream(xlsxPath))) {
             writeEntry(zipOut, "[Content_Types].xml", contentTypesXml());
             writeEntry(zipOut, "_rels/.rels", rootRelsXml());
@@ -57,7 +138,7 @@ public final class XslxPrinter {
             writeEntry(zipOut, "xl/workbook.xml", workbookXml());
             writeEntry(zipOut, "xl/_rels/workbook.xml.rels", workbookRelsXml());
             writeEntry(zipOut, "xl/styles.xml", stylesXml());
-            writeEntry(zipOut, "xl/worksheets/sheet1.xml", sheetXml(results));
+            writeEntry(zipOut, "xl/worksheets/sheet1.xml", sheetXml(columns, results));
 
             System.out.println(ConsoleColor.green("Successfully generated XLSX report: " + xlsxPath));
         } catch (Exception e) {
@@ -212,7 +293,7 @@ public final class XslxPrinter {
                 """;
     }
 
-    private static String sheetXml(List<ResultRow> results) {
+    private static String sheetXml(List<Column> columns, List<ResultRow> results) {
         int lastRow = results.size() + 1;
         var sb = new StringBuilder();
         sb.append("""
@@ -234,11 +315,11 @@ public final class XslxPrinter {
 
         // Column widths.
         sb.append("  <cols>\n");
-        for (int c = 0; c < COLUMN_WIDTHS.length; c++) {
+        for (int c = 0; c < columns.size(); c++) {
             sb.append(String.format(
                     Locale.US,
                     "    <col min=\"%d\" max=\"%d\" width=\"%.2f\" customWidth=\"1\"/>\n",
-                    c + 1, c + 1, COLUMN_WIDTHS[c]));
+                    c + 1, c + 1, columns.get(c).width()));
         }
         sb.append("  </cols>\n");
 
@@ -246,11 +327,11 @@ public final class XslxPrinter {
 
         // Header row.
         sb.append("    <row r=\"1\" ht=\"20\" customHeight=\"1\">\n");
-        for (int c = 0; c < HEADERS.length; c++) {
+        for (int c = 0; c < columns.size(); c++) {
             String ref = cellRef(c, 1);
             sb.append(String.format(
                     "      <c r=\"%s\" s=\"1\" t=\"inlineStr\"><is><t>%s</t></is></c>\n",
-                    ref, XmlUtil.escapeXml(HEADERS[c])));
+                    ref, XmlUtil.escapeXml(columns.get(c).header())));
         }
         sb.append("    </row>\n");
 
@@ -258,38 +339,18 @@ public final class XslxPrinter {
         int rowNum = 2;
         for (var r : results) {
             boolean banded = (rowNum % 2) == 0;
-            int textStyle = banded ? 3 : 2;
-            int centerStyle = banded ? 5 : 4;
-            int twoDecStyle = banded ? 7 : 6;
-            int fourDecStyle = banded ? 9 : 8;
-
             sb.append(String.format("    <row r=\"%d\">\n", rowNum));
-            appendInlineString(sb, cellRef(0, rowNum), textStyle, r.symbol());
-            appendInlineString(sb, cellRef(1, rowNum), centerStyle, r.quoteCurrency());
-            appendInlineString(sb, cellRef(2, rowNum), centerStyle, r.interval());
-            appendInlineString(sb, cellRef(3, rowNum), centerStyle, r.begin());
-            appendInlineString(sb, cellRef(4, rowNum), textStyle, r.time());
-            appendNumber(sb, cellRef(5, rowNum), twoDecStyle, r.close());
-            appendNumber(sb, cellRef(6, rowNum), fourDecStyle, r.rsi());
-            appendInlineString(sb, cellRef(7, rowNum), centerStyle, r.rsiRange());
-            appendNumber(sb, cellRef(8, rowNum), fourDecStyle, r.stochRsi());
-            appendInlineString(sb, cellRef(9, rowNum), centerStyle, r.stochRsiRange());
-            appendNumber(sb, cellRef(10, rowNum), fourDecStyle, r.k());
-            appendInlineString(sb, cellRef(11, rowNum), centerStyle, r.kRange());
-            appendNumber(sb, cellRef(12, rowNum), fourDecStyle, r.d());
-            appendInlineString(sb, cellRef(13, rowNum), centerStyle, r.dRange());
-            appendNumber(sb, cellRef(14, rowNum), fourDecStyle, r.macd());
-            appendInlineString(sb, cellRef(15, rowNum), centerStyle, r.macdRange());
-            appendNumber(sb, cellRef(16, rowNum), fourDecStyle, r.macdSignal());
-            appendInlineString(sb, cellRef(17, rowNum), centerStyle, r.macdSignalRange());
-            appendNumber(sb, cellRef(18, rowNum), fourDecStyle, r.macdHistogram());
-            appendInlineString(sb, cellRef(19, rowNum), centerStyle, r.macdHistogramRange());
-            appendNumber(sb, cellRef(20, rowNum), fourDecStyle, r.madr());
-            appendInlineString(sb, cellRef(21, rowNum), centerStyle, r.madrRange());
-            appendNumber(sb, cellRef(22, rowNum), fourDecStyle, r.macdStat());
-            appendInlineString(sb, cellRef(23, rowNum), centerStyle, r.macdStatRange());
-            appendNumber(sb, cellRef(24, rowNum), fourDecStyle, r.score());
-            appendInlineString(sb, cellRef(25, rowNum), centerStyle, r.scoreRange());
+            for (int c = 0; c < columns.size(); c++) {
+                Column column = columns.get(c);
+                String ref = cellRef(c, rowNum);
+                Object value = column.value().apply(r);
+                switch (column.kind()) {
+                    case TEXT -> appendInlineString(sb, ref, banded ? 3 : 2, (String) value);
+                    case CENTER -> appendInlineString(sb, ref, banded ? 5 : 4, (String) value);
+                    case TWO_DEC -> appendNumber(sb, ref, banded ? 7 : 6, (Double) value);
+                    case FOUR_DEC -> appendNumber(sb, ref, banded ? 9 : 8, (Double) value);
+                }
+            }
             sb.append("    </row>\n");
             rowNum++;
         }
@@ -297,70 +358,38 @@ public final class XslxPrinter {
         sb.append("  </sheetData>\n");
 
         // Auto-filter makes every column sortable / filterable.
-        int lastCol = HEADERS.length;
         sb.append(String.format(
                 "  <autoFilter ref=\"A1:%s%d\"/>\n",
-                columnLetters(lastCol - 1), Math.max(lastRow, 1)));
+                columnLetters(columns.size() - 1), Math.max(lastRow, 1)));
 
-        // Colour-code the RSI column: overbought (>=70) red, oversold (<=30) green.
+        // Colour-code the highlighted columns (dxfId 0 = red, 1 = green).
+        // Rule priorities must be unique across the sheet.
         if (!results.isEmpty()) {
-            String rsiRange = "G2:G" + lastRow;
-            sb.append(String.format("""
-                      <conditionalFormatting sqref="%s">
-                        <cfRule type="cellIs" dxfId="0" priority="1" operator="greaterThanOrEqual"><formula>70</formula></cfRule>
-                        <cfRule type="cellIs" dxfId="1" priority="2" operator="lessThanOrEqual"><formula>30</formula></cfRule>
-                      </conditionalFormatting>
-                    """, rsiRange));
-
-            // StochRSI is scaled 0..1: overbought (>=0.8) red, oversold (<=0.2) green.
-            String stochRange = "I2:I" + lastRow;
-            sb.append(String.format("""
-                      <conditionalFormatting sqref="%s">
-                        <cfRule type="cellIs" dxfId="0" priority="3" operator="greaterThanOrEqual"><formula>0.8</formula></cfRule>
-                        <cfRule type="cellIs" dxfId="1" priority="4" operator="lessThanOrEqual"><formula>0.2</formula></cfRule>
-                      </conditionalFormatting>
-                    """, stochRange));
-
-            // MACD histogram: above zero green (bullish), below zero red (bearish).
-            String histRange = "S2:S" + lastRow;
-            sb.append(String.format("""
-                      <conditionalFormatting sqref="%s">
-                        <cfRule type="cellIs" dxfId="1" priority="5" operator="greaterThan"><formula>0</formula></cfRule>
-                        <cfRule type="cellIs" dxfId="0" priority="6" operator="lessThan"><formula>0</formula></cfRule>
-                      </conditionalFormatting>
-                    """, histRange));
-
-            // MADR is scaled 0..1: sell side (>=0.8) red, buy side (<=0.2) green.
-            String madrRange = "U2:U" + lastRow;
-            sb.append(String.format("""
-                      <conditionalFormatting sqref="%s">
-                        <cfRule type="cellIs" dxfId="0" priority="7" operator="greaterThanOrEqual"><formula>0.8</formula></cfRule>
-                        <cfRule type="cellIs" dxfId="1" priority="8" operator="lessThanOrEqual"><formula>0.2</formula></cfRule>
-                      </conditionalFormatting>
-                    """, madrRange));
-
-            // MACD stat is scaled 0..1: bearish (>=0.8) red, bullish (<=0.2) green.
-            String macdStatRange = "W2:W" + lastRow;
-            sb.append(String.format("""
-                      <conditionalFormatting sqref="%s">
-                        <cfRule type="cellIs" dxfId="0" priority="9" operator="greaterThanOrEqual"><formula>0.8</formula></cfRule>
-                        <cfRule type="cellIs" dxfId="1" priority="10" operator="lessThanOrEqual"><formula>0.2</formula></cfRule>
-                      </conditionalFormatting>
-                    """, macdStatRange));
-
-            // Score averages six stats, so extremes are diluted: flag
-            // confluence at >=0.7 (sell) and <=0.3 (buy) instead of 0.8/0.2.
-            String scoreRange = "Y2:Y" + lastRow;
-            sb.append(String.format("""
-                      <conditionalFormatting sqref="%s">
-                        <cfRule type="cellIs" dxfId="0" priority="11" operator="greaterThanOrEqual"><formula>0.7</formula></cfRule>
-                        <cfRule type="cellIs" dxfId="1" priority="12" operator="lessThanOrEqual"><formula>0.3</formula></cfRule>
-                      </conditionalFormatting>
-                    """, scoreRange));
+            int priority = 1;
+            for (int c = 0; c < columns.size(); c++) {
+                Highlight highlight = columns.get(c).highlight();
+                if (highlight == null) {
+                    continue;
+                }
+                String range = columnLetters(c) + "2:" + columnLetters(c) + lastRow;
+                sb.append(String.format(Locale.US, """
+                          <conditionalFormatting sqref="%s">
+                            <cfRule type="cellIs" dxfId="0" priority="%d" operator="%s"><formula>%s</formula></cfRule>
+                            <cfRule type="cellIs" dxfId="1" priority="%d" operator="%s"><formula>%s</formula></cfRule>
+                          </conditionalFormatting>
+                        """, range,
+                        priority++, highlight.redOp(), formula(highlight.redValue()),
+                        priority++, highlight.greenOp(), formula(highlight.greenValue())));
+            }
         }
 
         sb.append("</worksheet>\n");
         return sb.toString();
+    }
+
+    /** Threshold as Excel writes it: {@code 70}, {@code 0.8}, {@code 0}. */
+    private static String formula(double value) {
+        return value == Math.rint(value) ? Long.toString((long) value) : Double.toString(value);
     }
 
     private static void appendInlineString(StringBuilder sb, String ref, int style, String value) {

@@ -5,14 +5,22 @@ import nl.debo.cryptodata.utils.DutchDate;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Computes RSI / Stochastic RSI (with K and D smoothing) and MACD over a
- * kline series and extracts the most recent row where every indicator has a
- * value.
+ * kline series and extracts the most recent row where every selected
+ * indicator has a value.
+ *
+ * <p>The {@link Indicator} selection decides what ends up in the row: an
+ * indicator outside it is reported as {@link Double#NaN} and does not have
+ * to be complete for a row to count. The series themselves are always
+ * computed — they are cheap, and K and D are built on the Stochastic RSI
+ * anyway, so selecting only K still needs the whole chain.</p>
  */
 public final class IndicatorAnalyzer {
 
+    private final Set<Indicator> indicators;
     private final int rsiPeriod;
     private final int stochRsiPeriod;
     private final int kPeriod;
@@ -24,10 +32,18 @@ public final class IndicatorAnalyzer {
     private final SignalNormalizer madrNormalizer;
     private final SignalNormalizer macdNormalizer;
 
-    public IndicatorAnalyzer(int rsiPeriod, int stochRsiPeriod, int kPeriod, int dPeriod,
+    /**
+     * @param indicators the indicators to report on; the rest come out as NaN
+     */
+    public IndicatorAnalyzer(Set<Indicator> indicators,
+                             int rsiPeriod, int stochRsiPeriod, int kPeriod, int dPeriod,
                              int macdFastPeriod, int macdSlowPeriod, int macdSignalPeriod,
                              int madrSmaPeriod, SignalNormalizer madrNormalizer,
                              SignalNormalizer macdNormalizer) {
+        if (indicators.isEmpty()) {
+            throw new IllegalArgumentException("Select at least one indicator");
+        }
+        this.indicators = Set.copyOf(indicators);
         this.rsiPeriod = rsiPeriod;
         this.stochRsiPeriod = stochRsiPeriod;
         this.kPeriod = kPeriod;
@@ -41,11 +57,12 @@ public final class IndicatorAnalyzer {
     }
 
     /**
-     * Returns the latest complete indicator row for the given klines, or empty
-     * if there is not enough data. Candles that have not closed yet are
-     * filtered out here, so an uncompleted candle is never used — whether the
-     * source ends the series with one (the live API usually does) or not (a
-     * market without trades in the open candle, a store of closed candles).
+     * Returns the latest row where every selected indicator is complete for
+     * the given klines, or empty if there is not enough data. Candles that
+     * have not closed yet are filtered out here, so an uncompleted candle is
+     * never used — whether the source ends the series with one (the live API
+     * usually does) or not (a market without trades in the open candle, a
+     * store of closed candles).
      */
     public Optional<ResultRow> latestRow(String symbol, String interval, List<Kline> klines) {
         long now = System.currentTimeMillis();
@@ -71,21 +88,20 @@ public final class IndicatorAnalyzer {
         var macdStat = macdNormalizer.normalize(
                 Indicators.scaledMacdHistogram(macd, macdSignal, closes));
 
-        if (rsi.isEmpty() || stochRsi.isEmpty() || k.isEmpty() || d.isEmpty()) {
-            return Optional.empty();
-        }
+        boolean wantRsi = indicators.contains(Indicator.RSI);
+        boolean wantStochRsi = indicators.contains(Indicator.STOCH_RSI);
+        boolean wantK = indicators.contains(Indicator.K);
+        boolean wantD = indicators.contains(Indicator.D);
+        boolean wantMacd = indicators.contains(Indicator.MACD);
 
         for (int i = closedKlines.size() - 1; i >= 0; i--) {
-            if (i >= rsi.size() || i >= stochRsi.size() || i >= k.size() || i >= d.size()) {
-                continue;
-            }
-
-            if (Double.isNaN(rsi.get(i))
-                    || Double.isNaN(stochRsi.get(i))
-                    || Double.isNaN(k.get(i))
-                    || Double.isNaN(d.get(i))
-                    || Double.isNaN(macd.get(i))
-                    || Double.isNaN(macdSignal.get(i))) {
+            // Every series is NaN-padded to the length of the closes; the
+            // size guards only protect against a shorter series.
+            if ((wantRsi && missing(rsi, i))
+                    || (wantStochRsi && missing(stochRsi, i))
+                    || (wantK && missing(k, i))
+                    || (wantD && missing(d, i))
+                    || (wantMacd && (missing(macd, i) || missing(macdSignal, i)))) {
                 continue;
             }
 
@@ -108,18 +124,23 @@ public final class IndicatorAnalyzer {
                     DutchDate.compact(closedKlines.get(i).openTime()),
                     time.toString(),
                     closedKlines.get(i).close(),
-                    rsi.get(i),
-                    stochRsi.get(i),
-                    k.get(i),
-                    d.get(i),
-                    macd.get(i),
-                    macdSignal.get(i),
-                    macd.get(i) - macdSignal.get(i),
+                    wantRsi ? rsi.get(i) : Double.NaN,
+                    wantStochRsi ? stochRsi.get(i) : Double.NaN,
+                    wantK ? k.get(i) : Double.NaN,
+                    wantD ? d.get(i) : Double.NaN,
+                    wantMacd ? macd.get(i) : Double.NaN,
+                    wantMacd ? macdSignal.get(i) : Double.NaN,
+                    wantMacd ? macd.get(i) - macdSignal.get(i) : Double.NaN,
                     madrValue,
-                    macdStatValue
+                    wantMacd ? macdStatValue : Double.NaN
             ));
         }
 
         return Optional.empty();
+    }
+
+    /** True when {@code series} has no value at {@code i} (too short or NaN warmup). */
+    private static boolean missing(List<Double> series, int i) {
+        return i >= series.size() || Double.isNaN(series.get(i));
     }
 }

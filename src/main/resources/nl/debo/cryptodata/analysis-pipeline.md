@@ -2,8 +2,9 @@
 
 `CryptoAnalysisBitvavo` is a thin entry point: it wires the exchange-independent
 `CryptoAnalysis` pipeline to the **local candle store** (`output/klines-bitvavo/`)
-through a self-updating `LocalKlineSource`, and runs it for the intervals
-`1d`, `1W` and `1M`.
+through a self-updating `LocalKlineSource`, reads the **indicator selection**
+from the `indicators` resource, and runs it for the intervals `1d`, `1W` and
+`1M`.
 
 The interesting work happens in three layers:
 
@@ -18,16 +19,44 @@ The interesting work happens in three layers:
 ```mermaid
 flowchart TD
     SYM[symbols-bitvavo\none market per line] --> CA[CryptoAnalysis.run]
+    IND[indicators\nRSI, STOCH-RSI, K, D, MACD\nany combination] --> CA
     CA -->|"symbol × interval (1d, 1W, 1M)"| LKS[LocalKlineSource]
     LKS -->|update on demand| IMP[KlineHistoryImporter]
     IMP -->|missing closed candles| API[(Bitvavo REST API)]
     IMP --> CSVSTORE[(output/klines-bitvavo/*.csv)]
     CSVSTORE --> LKS
     LKS -->|"newest 199 closed candles"| IA[IndicatorAnalyzer.latestRow]
-    IA --> ROW[ResultRow: RSI, StochRSI, K, D,\nMACD, Signal, Histogram, MADR, MACDstat]
+    IA --> ROW[ResultRow: the selected ones of\nRSI, StochRSI, K, D, MACD/Signal/Histogram/MACDstat\nplus MADR; the rest NaN]
     ROW --> OUT1[(data-bitvavo-local&lt;date&gt;.csv)]
     ROW --> OUT2[(data-bitvavo-local&lt;date&gt;.xlsx)]
 ```
+
+## Choosing the indicators
+
+The `indicators` resource (next to `symbols-bitvavo`) lists the indicators the
+run reports on, one per line, `#` for comments — any combination of `RSI`,
+`STOCH-RSI`, `K`, `D` and `MACD` (`MACD` covers the MACD line, signal line,
+histogram and the normalized MACD stat; MADR is always on). A file of the same
+name next to the application overrides the resource, so a run can be
+reconfigured without a rebuild. `Indicator.readSelection` parses it into an
+`EnumSet<Indicator>`; an empty or misspelled selection stops the run at
+startup.
+
+The selection travels with the pipeline and every stage honours it:
+
+| Stage | Left-out indicator |
+|---|---|
+| `IndicatorAnalyzer.latestRow` | not required to be complete; its value in the `ResultRow` is `NaN` (`ResultRow.has(indicator)` is false) |
+| console line | not printed |
+| CSV | column stays, cell is empty (reads back as `NaN`, so old and new files parse alike) |
+| XLSX | value + range columns omitted, conditional formatting shifts along |
+| `ResultRow.score()` | averages only the stats present (RSI/100, StochRSI, K, D, MADR, MACD stat) |
+
+Every series is still computed — they are cheap, and K and D are built on the
+Stochastic RSI anyway — only what goes into the row is filtered. That does
+change which row is "the latest": a run on `RSI` alone accepts a young coin
+with 20 daily candles, where the full selection needs the MACD warmup and would
+drop it.
 
 ## Uncompleted candles are never used
 
@@ -69,16 +98,17 @@ rows are sorted by **symbol** (alphabetically) and, within a symbol, by
 ## Picking "the latest row"
 
 `IndicatorAnalyzer.latestRow` computes all series over the closed candles and
-walks **backwards from the newest candle** to the first index where every core
-indicator (RSI, StochRSI, K, D, MACD, signal) is non-NaN:
+walks **backwards from the newest candle** to the first index where every
+**selected** indicator (out of RSI, StochRSI, K, D, MACD + signal) is non-NaN:
 
 ```mermaid
 flowchart LR
     A["filter: keep candles\nwith closeTime ≤ now"] --> B[compute all series\nNaN-padded warmups]
-    B --> C{scan i = last .. 0\nall core values non-NaN?}
+    B --> C{scan i = last .. 0\nall selected values non-NaN?}
     C -- no --> C
     C -- yes --> D[build ResultRow at i]
-    D --> E{MADR / MACDstat NaN?}
+    D --> H[unselected indicators → NaN]
+    H --> E{MADR / MACDstat NaN?}
     E -- "yes (long warmup)" --> F[fall back to neutral 0.5]
     E -- no --> G[use value\nMACDstat is flipped: 1 − v]
 ```
