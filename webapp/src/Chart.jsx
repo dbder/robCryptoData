@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   createChart,
   CandlestickSeries,
@@ -86,6 +86,16 @@ const PANES = {
  * `buy[i]` true → candle i is painted gold.
  */
 export default function Chart({ candles, series, buy, enabled, sim, ranged = false }) {
+  // Only the trading window is displayed when a range is set. `first` is the offset
+  // between displayed (logical) indices and the full-array indices the sim uses.
+  const first = ranged ? Math.min(Math.max(0, sim.firstIndex), candles.length) : 0;
+  const last = ranged ? Math.min(candles.length - 1, sim.lastIndex) : candles.length - 1;
+  const view = useMemo(() => candles.slice(first, last + 1), [candles, first, last]);
+  const viewSeries = useMemo(
+    () => Object.fromEntries(Object.entries(series).map(([k, v]) => [k, v.slice(first, last + 1)])),
+    [series, first, last]
+  );
+
   const containerRef = useRef(null);
   const chartRef = useRef(null);
   const candleSeriesRef = useRef(null);
@@ -119,17 +129,17 @@ export default function Chart({ candles, series, buy, enabled, sim, ranged = fal
     if (import.meta.env.DEV) { window.__markers = markersRef.current; window.__cs = candleSeries; }
     // Entry/stop/target lines follow the crosshair: the trades active on the hovered candle.
     chart.subscribeCrosshairMove((param) => {
-      const n = stateRef.current.candles.length;
+      const { view, first } = stateRef.current;
       const i = param.logical;
-      hoverRef.current = Number.isInteger(i) && i >= 0 && i < n ? i : null;
+      hoverRef.current = Number.isInteger(i) && i >= 0 && i < view.length ? first + i : null;
       drawPriceLines();
     });
     return () => { chart.remove(); chartRef.current = null; };
   }, []);
 
   // Latest sim/candles for the crosshair handler (which is subscribed once).
-  const stateRef = useRef({ candles, sim });
-  stateRef.current = { candles, sim };
+  const stateRef = useRef({ view, first, sim });
+  stateRef.current = { view, first, sim };
   const hoverRef = useRef(null);      // hovered candle index, null when the pointer is off the candles
   const linesKeyRef = useRef('');     // which trades the lines currently show, to skip redundant redraws
 
@@ -168,18 +178,18 @@ export default function Chart({ candles, series, buy, enabled, sim, ranged = fal
     // setData() replaces same-time data on the only series in the chart, and the next
     // setData() with more series present then drops every point (blank chart).
     cs.setData([]);
-    cs.setData(candles.map((c, i) => {
+    cs.setData(view.map((c, i) => {
       const bar = { time: toTime(c.openTime), open: c.open, high: c.high, low: c.low, close: c.close };
-      if (bought.has(i)) {
+      if (bought.has(first + i)) {
         bar.color = COLORS.gold;
         bar.wickColor = COLORS.gold;
         bar.borderColor = COLORS.goldBorder;
-      } else if (skipped.has(i)) {
+      } else if (skipped.has(first + i)) {
         bar.borderColor = COLORS.gold;
       }
       return bar;
     }));
-  }, [candles, buy, sim]);
+  }, [view, first, buy, sim]);
 
   // Trade markers; price lines are redrawn for the new sim too.
   useEffect(() => {
@@ -203,23 +213,22 @@ export default function Chart({ candles, series, buy, enabled, sim, ranged = fal
   }, [candles, sim]);
 
   // Reset the view when the coin/timeframe/trade range changes: the whole trading
-  // window when a range is set (an open end runs to the last candle), else the last 150 candles.
+  // window when a range is set (only those candles are displayed), else the last 150 candles.
   useEffect(() => {
     const chart = chartRef.current;
-    if (!chart || candles.length === 0) return;
-    const end = Math.min(candles.length - 1, Math.max(0, sim.lastIndex)) + 1;
-    const start = ranged ? Math.min(sim.firstIndex, end - 1) : end - 150;
-    chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, start), to: end + 3 });
-  }, [candles, ranged, sim.firstIndex, sim.lastIndex]);
+    if (!chart || view.length === 0) return;
+    const n = view.length;
+    chart.timeScale().setVisibleLogicalRange({ from: ranged ? 0 : Math.max(0, n - 150), to: n + 3 });
+  }, [view, ranged]);
 
   // Indicator panes follow the toggles.
   useEffect(() => {
     const chart = chartRef.current;
-    if (!chart || candles.length === 0) return;
+    if (!chart || view.length === 0) return;
     let pane = 1;
     for (const id of ['rsi', 'srsi', 'macd']) {
       if (!enabled.includes(id)) continue;
-      paneSeriesRef.current.push(...PANES[id].build(chart, pane, candles, series));
+      paneSeriesRef.current.push(...PANES[id].build(chart, pane, view, viewSeries));
       pane++;
     }
     chart.panes().forEach((p, i) => p.setStretchFactor(i === 0 ? 3 : 1));
@@ -228,7 +237,7 @@ export default function Chart({ candles, series, buy, enabled, sim, ranged = fal
       for (const s of paneSeriesRef.current) chart.removeSeries(s);
       paneSeriesRef.current = [];
     };
-  }, [enabled, candles, series]);
+  }, [enabled, view, viewSeries]);
 
   return <div className="chart" ref={containerRef} />;
 }
