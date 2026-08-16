@@ -54,7 +54,7 @@ export function simulateTrades(candles, buy, {
 
     if (buy[i]) {
       if (skipWhileOpen && opens.length > 0) skipped.push(i);
-      else opens.push({ entryIndex: i, entry: c.close });
+      else opens.push({ entryIndex: i, entry: c.close, stopPrice: c.close * (1 - stopLoss), targetPrice: c.close * (1 + takeProfit) });
     }
   }
   trades.sort((a, b) => a.entryIndex - b.entryIndex || a.exitIndex - b.exitIndex);
@@ -67,8 +67,6 @@ export function simulateTrades(candles, buy, {
     const unrealized = tradeResultEur(stake, open.entry, last.close, fee);
     return {
       ...open,
-      stopPrice: open.entry * (1 - stopLoss),
-      targetPrice: open.entry * (1 + takeProfit),
       move: last.close / open.entry - 1,
       eur: unrealized,            // as if sold at the last close, fees included
       pct: unrealized / stake,

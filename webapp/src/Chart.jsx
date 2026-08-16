@@ -117,8 +117,46 @@ export default function Chart({ candles, series, buy, enabled, sim, ranged = fal
     candleSeriesRef.current = candleSeries;
     markersRef.current = createSeriesMarkers(candleSeries, []);
     if (import.meta.env.DEV) { window.__markers = markersRef.current; window.__cs = candleSeries; }
+    // Entry/stop/target lines follow the crosshair: the trades active on the hovered candle.
+    chart.subscribeCrosshairMove((param) => {
+      const n = stateRef.current.candles.length;
+      const i = param.logical;
+      hoverRef.current = Number.isInteger(i) && i >= 0 && i < n ? i : null;
+      drawPriceLines();
+    });
     return () => { chart.remove(); chartRef.current = null; };
   }, []);
+
+  // Latest sim/candles for the crosshair handler (which is subscribed once).
+  const stateRef = useRef({ candles, sim });
+  stateRef.current = { candles, sim };
+  const hoverRef = useRef(null);      // hovered candle index, null when the pointer is off the candles
+  const linesKeyRef = useRef('');     // which trades the lines currently show, to skip redundant redraws
+
+  /** Entry (+ stop/target when it's a single trade) lines for the trades active on the hovered candle, else the open trades. */
+  const drawPriceLines = (force = false) => {
+    const cs = candleSeriesRef.current;
+    if (!cs) return;
+    const { sim } = stateRef.current;
+    const i = hoverRef.current;
+    const active = i === null
+      ? sim.openTrades
+      : [...sim.trades, ...sim.openTrades].filter((t) => t.entryIndex <= i && (t.exitIndex === undefined || i <= t.exitIndex));
+    const key = active.map((t) => t.entryIndex).join(',');
+    if (!force && key === linesKeyRef.current) return;
+    linesKeyRef.current = key;
+
+    for (const l of priceLinesRef.current) cs.removePriceLine(l);
+    priceLinesRef.current = [];
+    const mk = (price, color, title) => cs.createPriceLine({ price, color, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title });
+    // One trade: entry + stop + target. Several: entry lines only, to keep the price scale readable.
+    for (const t of active) {
+      priceLinesRef.current.push(mk(t.entry, COLORS.gold, 'entry'));
+      if (active.length === 1) {
+        priceLinesRef.current.push(mk(t.stopPrice, COLORS.down, 'stop'), mk(t.targetPrice, COLORS.up, 'target'));
+      }
+    }
+  };
 
   // Candle data: executed buys are gold, signals skipped (trade already open) get a gold outline.
   useEffect(() => {
@@ -143,7 +181,7 @@ export default function Chart({ candles, series, buy, enabled, sim, ranged = fal
     }));
   }, [candles, buy, sim]);
 
-  // Trade markers + entry/stop/target lines for the open trade.
+  // Trade markers; price lines are redrawn for the new sim too.
   useEffect(() => {
     const cs = candleSeriesRef.current;
     if (!cs || !markersRef.current) return;
@@ -161,17 +199,7 @@ export default function Chart({ candles, series, buy, enabled, sim, ranged = fal
     }
     markers.sort((a, b) => a.time - b.time);
     markersRef.current.setMarkers(markers);
-
-    for (const l of priceLinesRef.current) cs.removePriceLine(l);
-    priceLinesRef.current = [];
-    const mk = (price, color, title) => cs.createPriceLine({ price, color, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title });
-    // One open trade: entry + stop + target. Several: entry lines only, to keep the price scale readable.
-    for (const t of sim.openTrades) {
-      priceLinesRef.current.push(mk(t.entry, COLORS.gold, 'entry'));
-      if (sim.openTrades.length === 1) {
-        priceLinesRef.current.push(mk(t.stopPrice, COLORS.down, 'stop'), mk(t.targetPrice, COLORS.up, 'target'));
-      }
-    }
+    drawPriceLines(true);
   }, [candles, sim]);
 
   // Reset the view when the coin/timeframe/trade range changes: the whole trading
