@@ -3,7 +3,7 @@ import Chart from './Chart.jsx';
 import AllCoinsModal from './AllCoins.jsx';
 import DateField from './DateField.jsx';
 import { computeAll } from './indicators.js';
-import { INDICATORS, combineBuySignals } from './signals.js';
+import { INDICATORS, DEFAULT_PARAMS, combineBuySignals } from './signals.js';
 import { simulateTrades, DEFAULT_STOP_LOSS, DEFAULT_TAKE_PROFIT, DEFAULT_STAKE_EUR, DEFAULT_FEE } from './trades.js';
 
 const EMPTY = { rsi: [], stochRsi: [], k: [], d: [], macd: [], signal: [], hist: [] };
@@ -24,6 +24,10 @@ function fromUrl() {
     skipWhileOpen: q.get('skip') !== '0',
     from: dateOr(q.get('from')),
     to: dateOr(q.get('to')),
+    params: {
+      rsiMax: numOr(q.get('rsi'), DEFAULT_PARAMS.rsiMax),
+      stochMax: numOr(q.get('srsi'), DEFAULT_PARAMS.stochMax),
+    },
   };
 }
 /** 'YYYY-MM-DD' or '' (no bound). */
@@ -72,6 +76,7 @@ export default function App() {
   const [skipWhileOpen, setSkipWhileOpen] = useState(initial.skipWhileOpen);
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
+  const [params, setParams] = useState(initial.params);   // indicator trigger levels
   const [showTrades, setShowTrades] = useState(false);
   const [showAllCoins, setShowAllCoins] = useState(false);
 
@@ -80,8 +85,10 @@ export default function App() {
     const q = new URLSearchParams({ market, interval, ind: enabled.join(','), mode, stop: stopPct, target: targetPct, stake, fee: feePct, skip: skipWhileOpen ? '1' : '0' });
     if (from) q.set('from', from);
     if (to) q.set('to', to);
+    q.set('rsi', params.rsiMax);
+    q.set('srsi', params.stochMax);
     window.history.replaceState(null, '', `?${q}`);
-  }, [market, interval, enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen, from, to]);
+  }, [market, interval, enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen, from, to, params]);
 
   // Market list from the local candle store.
   useEffect(() => {
@@ -114,7 +121,7 @@ export default function App() {
   }, [market, interval]);
 
   const series = useMemo(() => (candles.length ? computeAll(candles) : EMPTY), [candles]);
-  const buy = useMemo(() => combineBuySignals(series, enabled, mode), [series, enabled, mode]);
+  const buy = useMemo(() => combineBuySignals(series, enabled, mode, params), [series, enabled, mode, params]);
   const sim = useMemo(
     () => simulateTrades(candles, buy, { stopLoss: stopPct / 100, takeProfit: targetPct / 100, stake, fee: feePct / 100, skipWhileOpen, from: fromMs(from), to: toMs(to) }),
     [candles, buy, stopPct, targetPct, stake, feePct, skipWhileOpen, from, to]
@@ -130,8 +137,8 @@ export default function App() {
   const last = candles.at(-1);
   // Everything the simulation depends on besides the candles — handed to the all-coins modal.
   const config = useMemo(
-    () => ({ enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen, from: fromMs(from), to: toMs(to) }),
-    [enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen, from, to]
+    () => ({ enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen, from: fromMs(from), to: toMs(to), params }),
+    [enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen, from, to, params]
   );
   const activePreset = RANGE_PRESETS.find((p) => (p.months === null ? !from && !to : from === monthsAgo(p.months) && !to))?.label;
   const inRange = sim.lastIndex - sim.firstIndex + 1;
@@ -204,7 +211,7 @@ export default function App() {
       </header>
 
       <main className="chart-wrap">
-        <Chart candles={candles} series={series} buy={buy} enabled={enabled} sim={sim} ranged={Boolean(from || to)} />
+        <Chart candles={candles} series={series} buy={buy} enabled={enabled} sim={sim} ranged={Boolean(from || to)} params={params} />
       </main>
 
       {showTrades && <TradeLog candles={candles} sim={sim} />}
@@ -213,14 +220,14 @@ export default function App() {
         <div className="group">
           <label>Buy signals</label>
           {INDICATORS.map((ind) => (
-            <button
+            <IndicatorButton
               key={ind.id}
-              className={`indicator ${enabled.includes(ind.id) ? 'on' : ''}`}
-              title={ind.hint}
-              onClick={() => toggle(ind.id)}
-            >
-              {ind.label}
-            </button>
+              ind={ind}
+              on={enabled.includes(ind.id)}
+              params={params}
+              onToggle={() => toggle(ind.id)}
+              onParam={(key, v) => setParams((cur) => ({ ...cur, [key]: v }))}
+            />
           ))}
         </div>
         <div className="group">
@@ -272,6 +279,31 @@ export default function App() {
         <AllCoinsModal markets={markets} interval={interval} config={config} onClose={() => setShowAllCoins(false)} />
       )}
     </div>
+  );
+}
+
+/** Indicator toggle; for indicators with a trigger level, hovering shows a slider to change it. */
+function IndicatorButton({ ind, on, params, onToggle, onParam }) {
+  const button = (
+    <button className={`indicator ${on ? 'on' : ''}`} title={ind.hint(params)} onClick={onToggle}>
+      {ind.label}{ind.param && <span className="level"> {ind.param.format(params[ind.param.key])}</span>}
+    </button>
+  );
+  if (!ind.param) return button;
+  const { key, min, max, step, format, label } = ind.param;
+  return (
+    <span className="hover-picker">
+      {button}
+      <span className="options">
+        <span className="slider">
+          <span className="slider-label">{label} <strong>{format(params[key])}</strong></span>
+          {/* focus keeps the popover open while dragging even if the pointer strays; blur on release lets it close */}
+          <input type="range" min={min} max={max} step={step} value={params[key]}
+            onChange={(e) => onParam(key, Number(e.target.value))}
+            onPointerUp={(e) => e.target.blur()} />
+        </span>
+      </span>
+    </span>
   );
 }
 

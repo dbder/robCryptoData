@@ -8,7 +8,7 @@ import {
   CrosshairMode,
   createSeriesMarkers,
 } from 'lightweight-charts';
-import { RSI_OVERSOLD, STOCH_OVERSOLD } from './signals.js';
+import { DEFAULT_PARAMS } from './signals.js';
 
 export const COLORS = {
   up: '#26a69a',
@@ -37,25 +37,25 @@ function pointsOf(candles, values) {
 const PANES = {
   rsi: {
     title: 'RSI (14)',
-    build(chart, pane, candles, s) {
+    build(chart, pane, candles, s, p) {
       const line = chart.addSeries(LineSeries,
         { color: COLORS.line1, lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: 'RSI' }, pane);
       line.setData(pointsOf(candles, s.rsi));
-      line.createPriceLine({ price: RSI_OVERSOLD, color: COLORS.gold, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'buy' });
+      line.createPriceLine({ price: p.rsiMax, color: COLORS.gold, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'buy' });
       line.createPriceLine({ price: 70, color: COLORS.level, lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
       return [line];
     },
   },
   srsi: {
     title: 'Stoch RSI (14,3,3)',
-    build(chart, pane, candles, s) {
+    build(chart, pane, candles, s, p) {
       const k = chart.addSeries(LineSeries,
         { color: COLORS.line1, lineWidth: 2, priceLineVisible: false, title: 'K' }, pane);
       const d = chart.addSeries(LineSeries,
         { color: COLORS.line2, lineWidth: 2, priceLineVisible: false, title: 'D' }, pane);
       k.setData(pointsOf(candles, s.k));
       d.setData(pointsOf(candles, s.d));
-      k.createPriceLine({ price: STOCH_OVERSOLD, color: COLORS.gold, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'buy' });
+      k.createPriceLine({ price: p.stochMax, color: COLORS.gold, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'buy' });
       k.createPriceLine({ price: 0.8, color: COLORS.level, lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
       return [k, d];
     },
@@ -85,7 +85,7 @@ const PANES = {
  * Candlestick chart with optional indicator panes underneath.
  * `buy[i]` true → candle i is painted gold.
  */
-export default function Chart({ candles, series, buy, enabled, sim, ranged = false }) {
+export default function Chart({ candles, series, buy, enabled, sim, ranged = false, params = DEFAULT_PARAMS }) {
   // Only the trading window is displayed when a range is set. `first` is the offset
   // between displayed (logical) indices and the full-array indices the sim uses.
   const first = ranged ? Math.min(Math.max(0, sim.firstIndex), candles.length) : 0;
@@ -228,7 +228,7 @@ export default function Chart({ candles, series, buy, enabled, sim, ranged = fal
     let pane = 1;
     for (const id of ['rsi', 'srsi', 'macd']) {
       if (!enabled.includes(id)) continue;
-      paneSeriesRef.current.push(...PANES[id].build(chart, pane, view, viewSeries));
+      paneSeriesRef.current.push(...PANES[id].build(chart, pane, view, viewSeries, params));
       pane++;
     }
     chart.panes().forEach((p, i) => p.setStretchFactor(i === 0 ? 3 : 1));
@@ -237,7 +237,7 @@ export default function Chart({ candles, series, buy, enabled, sim, ranged = fal
       for (const s of paneSeriesRef.current) chart.removeSeries(s);
       paneSeriesRef.current = [];
     };
-  }, [enabled, view, viewSeries]);
+  }, [enabled, view, viewSeries, params]);
 
   return <div className="chart" ref={containerRef} />;
 }
