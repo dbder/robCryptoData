@@ -82,11 +82,16 @@ export function simulateTrades(candles, buy, {
   };
 }
 
-/** Index range of the candles that open inside [from, to]; empty range when none do. */
+/**
+ * Index range of the candles that overlap [from, to]; empty range when none do.
+ * A candle counts as soon as any part of it lies in the range, so a range that starts
+ * mid-week or mid-month still includes the weekly/monthly candle it starts in: '1y' on
+ * the monthly timeframe is 12 candles, not 11.
+ */
 export function tradingWindow(candles, from, to) {
   let firstIndex = 0;
   let lastIndex = candles.length - 1;
-  if (from != null) while (firstIndex < candles.length && candles[firstIndex].openTime < from) firstIndex++;
+  if (from != null) while (firstIndex < candles.length && candles[firstIndex].closeTime < from) firstIndex++;
   if (to != null) while (lastIndex >= 0 && candles[lastIndex].openTime > to) lastIndex--;
   return { firstIndex, lastIndex };
 }
