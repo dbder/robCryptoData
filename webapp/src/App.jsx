@@ -249,15 +249,15 @@ export default function App() {
               onChange={(e) => setFeePct(numOrZero(e.target.value, feePct))} /> %
           </span>
         </div>
-        <div className="footer-right">
+        <div className="group">
           <button className="all-coins" title="P/L of the current configuration for every coin" onClick={() => setShowAllCoins(true)}>
             Σ all coins
           </button>
-          <div className="status">
-            {enabled.length === 0
-              ? <span>turn on an indicator to simulate buys</span>
-              : <TradeSummary sim={sim} skipWhileOpen={skipWhileOpen} onToggleLog={() => setShowTrades((v) => !v)} showTrades={showTrades} />}
-          </div>
+        </div>
+        <div className="status">
+          {enabled.length === 0
+            ? <span>turn on an indicator to simulate buys</span>
+            : <TradeSummary sim={sim} skipWhileOpen={skipWhileOpen} onToggleLog={() => setShowTrades((v) => !v)} showTrades={showTrades} />}
         </div>
       </footer>
 

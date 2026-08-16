@@ -120,11 +120,6 @@ label.check {
 }
 label.check input { accent-color: var(--gold); width: 15px; height: 15px; }
 
-/* Right end of the footer: "all coins" button on top, trade summary below it. */
-.footer-right {
-  margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
-}
-.footer-right .status { margin-left: 0; }
 button.all-coins {
   background: var(--accent); color: #06111f; border-color: var(--accent);
   border-radius: 999px; padding: 6px 14px; font-weight: 600;
