@@ -146,6 +146,13 @@ export default function App() {
             placeholder="filter…"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter picks the coin the dropdown is showing: the current one if it still
+              // matches the filter, otherwise the first match.
+              if (e.key !== 'Enter') return;
+              const shown = visibleMarkets.find((m) => m.market === market) ?? visibleMarkets[0];
+              if (shown) setMarket(shown.market);
+            }}
           />
           <select value={market} onChange={(e) => setMarket(e.target.value)}>
             {visibleMarkets.map((m) => (
