@@ -69,6 +69,21 @@ button:hover { border-color: var(--accent); }
 .segmented button:last-child { border-radius: 0 6px 6px 0; }
 .segmented button.active { background: var(--accent); border-color: var(--accent); color: #06111f; font-weight: 600; }
 button.indicator { min-width: 72px; font-weight: 600; }
+
+/* Collapsed picker: a chip with the current value; the option buttons pop out on hover/focus. */
+.hover-picker { position: relative; display: inline-block; outline: none; }
+.hover-picker .current {
+  display: inline-block; padding: 6px 12px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--accent); color: #06111f; font-weight: 600; cursor: default; min-width: 56px; text-align: center;
+}
+.hover-picker .caret { font-size: 10px; opacity: .7; margin-left: 2px; }
+.hover-picker .options {
+  display: none; position: absolute; top: 100%; left: 0; z-index: 25; padding-top: 4px;   /* padding, not margin: keeps hover while crossing the gap */
+}
+.hover-picker:hover .options, .hover-picker:focus-within .options { display: block; }
+.hover-picker .options .segmented {
+  background: var(--panel); border-radius: 6px; box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
+}
 button.indicator.on { background: var(--gold); border-color: var(--gold); color: #1a1400; }
 .status { margin-left: auto; color: var(--muted); }
 .status strong { color: var(--text); }

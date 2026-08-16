@@ -155,7 +155,7 @@ export default function App() {
         </div>
         <div className="group">
           <label>Timeframe</label>
-          <div className="segmented">
+          <HoverPicker current={interval}>
             {intervals.map((iv) => (
               <button
                 key={iv}
@@ -165,14 +165,14 @@ export default function App() {
                 {iv}
               </button>
             ))}
-          </div>
+          </HoverPicker>
         </div>
         <div className="group" title="buys and sells only happen in this window; earlier candles still warm up the indicators">
           <label>Trade range</label>
           <DateField value={from} max={to} edge="start" onChange={setFrom} />
           <span className="muted">→</span>
           <DateField value={to} min={from} edge="end" onChange={setTo} />
-          <div className="segmented">
+          <HoverPicker current={activePreset ?? 'custom'}>
             {RANGE_PRESETS.map((p) => (
               <button
                 key={p.label}
@@ -182,7 +182,7 @@ export default function App() {
                 {p.label}
               </button>
             ))}
-          </div>
+          </HoverPicker>
         </div>
         <div className="status">
           {loading && <span>loading…</span>}
@@ -265,6 +265,16 @@ export default function App() {
         <AllCoinsModal markets={markets} interval={interval} config={config} onClose={() => setShowAllCoins(false)} />
       )}
     </div>
+  );
+}
+
+/** Shows only the current value; hovering (or focusing) it reveals the full row of option buttons. */
+function HoverPicker({ current, children }) {
+  return (
+    <span className="hover-picker" tabIndex={0}>
+      <span className="current">{current} <span className="caret">▾</span></span>
+      <span className="options" onMouseDown={(e) => e.preventDefault()}><span className="segmented">{children}</span></span>
+    </span>
   );
 }
 
