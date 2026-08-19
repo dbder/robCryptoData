@@ -169,6 +169,10 @@ button.all-coins:hover { filter: brightness(1.1); }
 .modal-groups tr.excluded td { color: var(--muted); text-decoration: line-through; }
 .modal-groups tr.excluded td label { color: var(--muted); }
 .modal-groups label.check { display: inline-flex; font-size: 13px; }
+/* Header of the group column: master checkbox + all/none buttons. */
+.modal-groups .select-all { display: inline-flex; align-items: center; gap: 8px; }
+.modal-groups .select-all input { accent-color: var(--accent); width: 14px; height: 14px; margin: 0; cursor: pointer; }
+.modal-groups .select-all .segmented button { padding: 1px 8px; font-size: 11px; }
 .modal-groups label.check input { accent-color: var(--accent); width: 14px; height: 14px; }
 .modal-groups tr.totals td, .modal-body tr.totals td {
   font-weight: 600; background: var(--bg); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);

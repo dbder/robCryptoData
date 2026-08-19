@@ -121,6 +121,8 @@ export default function AllCoinsModal({ markets, interval, config, onClose }) {
     });
   }, [included, sort]);
   const totals = sumRows(included);
+  const allIncluded = groups.length > 0 && groups.every((g) => !excluded.has(g.id));
+  const noneIncluded = groups.every((g) => excluded.has(g.id));
   const overrideCount = Object.keys(overrides).length;
 
   const done = rows.length + Object.keys(failed).length;
@@ -147,7 +149,19 @@ export default function AllCoinsModal({ markets, interval, config, onClose }) {
           <table>
             <thead>
               <tr>
-                <th>Group</th><th>Coins</th><th>Trades</th><th>Target</th><th>Stop</th><th>Realized P/L</th><th>Open</th><th>Open P/L</th><th>Total</th>
+                <th>
+                  <span className="select-all">
+                    <input type="checkbox" title={allIncluded ? 'select none' : 'select all'} checked={allIncluded}
+                      ref={(el) => { if (el) el.indeterminate = !allIncluded && !noneIncluded; }}
+                      onChange={() => setExcludedAndSave(allIncluded ? new Set(groups.map((g) => g.id)) : new Set())} />
+                    Group
+                    <span className="segmented">
+                      <button className={allIncluded ? 'active' : ''} onClick={() => setExcludedAndSave(new Set())}>all</button>
+                      <button className={noneIncluded ? 'active' : ''} onClick={() => setExcludedAndSave(new Set(groups.map((g) => g.id)))}>none</button>
+                    </span>
+                  </span>
+                </th>
+                <th>Coins</th><th>Trades</th><th>Target</th><th>Stop</th><th>Realized P/L</th><th>Open</th><th>Open P/L</th><th>Total</th>
               </tr>
             </thead>
             <tbody>
@@ -174,10 +188,7 @@ export default function AllCoinsModal({ markets, interval, config, onClose }) {
             </tfoot>
           </table>
           <div className="modal-note">
-            click a group to include or exclude it ·{' '}
-            <button className="link" onClick={() => setExcludedAndSave(new Set())}>all</button> ·{' '}
-            <button className="link" onClick={() => setExcludedAndSave(new Set(groups.map((g) => g.id)))}>none</button>
-            {' '}· a coin's group is set in <code>src/categories.js</code>; change it in its row below
+            click a group to include or exclude it · a coin's group is set in <code>src/categories.js</code>; change it in its row below
             {overrideCount > 0 && <> · {overrideCount} moved by you (<button className="link" onClick={() => { setOverrides({}); saveOverrides({}); }}>reset</button>)</>}
           </div>
         </div>

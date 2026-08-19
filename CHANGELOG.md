@@ -5,7 +5,7 @@ Hier houden we bij wat er verandert in het project.
 ## [17] - 2026-08-19
 
 ### Nieuw
-- De "Σ all coins"-tabel in de webapp deelt de munten in groepen in: Stablecoins, Alpha (de grootste munten), L1 / L2 & infra, DeFi, AI / DePIN, Gaming / NFT, Meme, Dead en Other. Boven de muntenlijst staat per groep het aantal munten, trades, doel/stop en de gerealiseerde, open en totale winst; een klik op een groep (of zijn vinkje) sluit hem uit of neemt hem weer mee, met `all`/`none` voor alles tegelijk. De muntenlijst en de totaalregels tellen alleen de meegenomen groepen. Welke munt in welke groep zit staat in `webapp/src/categories.js` (op basisvaluta, dus BTC-EUR en BTC-USDC horen bij elkaar); met de keuzelijst in de rij van een munt verplaats je hem naar een andere groep — die keuze en de uitgesloten groepen onthoudt de browser (localStorage), `reset` zet de verplaatsingen terug.
+- De "Σ all coins"-tabel in de webapp deelt de munten in groepen in: Stablecoins, Alpha (de grootste munten), L1 / L2 & infra, DeFi, AI / DePIN, Gaming / NFT, Meme, Dead en Other. Boven de muntenlijst staat per groep het aantal munten, trades, doel/stop en de gerealiseerde, open en totale winst; een klik op een groep (of zijn vinkje) sluit hem uit of neemt hem weer mee, met een alles-vinkje en `all`/`none`-knoppen in de kop voor alles tegelijk. De muntenlijst en de totaalregels tellen alleen de meegenomen groepen. Welke munt in welke groep zit staat in `webapp/src/categories.js` (op basisvaluta, dus BTC-EUR en BTC-USDC horen bij elkaar); met de keuzelijst in de rij van een munt verplaats je hem naar een andere groep — die keuze en de uitgesloten groepen onthoudt de browser (localStorage), `reset` zet de verplaatsingen terug.
 
 ## [16] - 2026-08-17
 

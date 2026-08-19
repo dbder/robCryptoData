@@ -37,7 +37,7 @@ npm run dev      # opens http://localhost:5173
   timeframe. The coins are grouped (Stablecoins, Alpha, L1 / L2 & infra, DeFi, AI / DePIN,
   Gaming / NFT, Meme, Dead, Other — `src/categories.js`, by base asset so BTC-EUR and BTC-USDC
   share a group); a table at the top shows the totals per group and clicking a group (or its
-  checkbox) excludes/includes it (`all` / `none` for every group at once). The coin list and
+  checkbox) excludes/includes it; the header has a select-all checkbox and `all` / `none` buttons. The coin list and
   its totals only cover the included groups. The select in a coin's row moves it to another
   group; moves and excluded groups are remembered in the browser (localStorage), `reset`
   undoes the moves.
