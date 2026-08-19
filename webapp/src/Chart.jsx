@@ -22,6 +22,9 @@ export const COLORS = {
   line2: '#ff8a65',
   hist: '#607d8b',
   level: '#3b4a5c',
+  ownBuy: '#4fa3ff',    // the user's real buys / sells (ledger), distinct from the gold/green/red simulation
+  ownSell: '#c77dff',
+  pending: '#8b98aa',   // synthetic candle for a trade newer than the candle store (no closed candle yet)
 };
 
 const toTime = (ms) => Math.floor(ms / 1000);
@@ -32,6 +35,87 @@ function pointsOf(candles, values) {
     if (!Number.isNaN(values[i])) out.push({ time: toTime(candles[i].openTime), value: values[i] });
   }
   return out;
+}
+
+/** Index of the candle a moment (ms) falls in: the last candle opening at or before it, -1 when before the first. */
+function candleIndexAt(candles, ms) {
+  let lo = 0, hi = candles.length - 1, found = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (candles[mid].openTime <= ms) { found = mid; lo = mid + 1; } else hi = mid - 1;
+  }
+  return found;
+}
+
+const eurText = (v) => `€${Math.round(v).toLocaleString('en-US')}`;
+
+/**
+ * Markers for the user's real trades: one per candle and side (several fills in the same
+ * candle are summed, e.g. "3 buys €2,990"), buys below the bar, sells above.
+ * Trades outside the given candles (before the first, after the last closes) are dropped.
+ */
+export function ownTradeMarkers(candles, ownTrades) {
+  const perCandle = new Map();   // `${index}:${side}` → { index, side, n, eur }
+  for (const t of ownTrades) {
+    const i = candleIndexAt(candles, t.time);
+    if (i < 0 || t.time > candles[i].closeTime) continue;
+    const key = `${i}:${t.side}`;
+    const agg = perCandle.get(key) ?? { index: i, side: t.side, n: 0, eur: 0 };
+    agg.n++;
+    agg.eur += t.amount * t.price;
+    perCandle.set(key, agg);
+  }
+  return [...perCandle.values()].map(({ index, side, n, eur }) => {
+    const isBuy = side === 'buy';
+    const label = n === 1 ? side : `${n} ${side}s`;
+    return {
+      time: toTime(candles[index].openTime),
+      position: isBuy ? 'belowBar' : 'aboveBar',
+      shape: isBuy ? 'arrowUp' : 'arrowDown',
+      color: isBuy ? COLORS.ownBuy : COLORS.ownSell,
+      text: `${label} ${eurText(eur)}`,
+    };
+  });
+}
+
+const HOUR = 3600 * 1000;
+const INTERVAL_MS = { '1h': HOUR, '2h': 2 * HOUR, '4h': 4 * HOUR, '6h': 6 * HOUR, '8h': 8 * HOUR, '12h': 12 * HOUR, '1d': 24 * HOUR, '1W': 7 * 24 * HOUR };
+const MAX_PENDING_SLOTS = 500;   // how far past the store the pending bars may reach (a very stale store on 1h)
+
+/** Open time (ms) of the candle after the one opening at `openTime`; `fallbackMs` when the interval is unknown. */
+function nextOpen(openTime, interval, fallbackMs) {
+  if (interval === '1M') {
+    const d = new Date(openTime);
+    return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1);
+  }
+  return openTime + (INTERVAL_MS[interval] ?? fallbackMs);
+}
+
+/**
+ * Bars for the time after the last stored candle, so a trade newer than the store still gets its
+ * own spot on the time axis: the store only holds closed candles, so today's trade has no candle yet
+ * (and neither has one from yesterday until the store is refreshed). A slot with trades becomes a
+ * synthetic "pending" candle built from the trade prices themselves; empty slots in between are
+ * whitespace (they only extend the axis). Nothing when no trade is newer than the store.
+ */
+export function pendingBars(candles, ownTrades, interval) {
+  const last = candles.at(-1);
+  if (!last) return [];
+  const newer = ownTrades.filter((t) => t.time > last.closeTime).sort((a, b) => a.time - b.time);
+  if (!newer.length) return [];
+  const dur = last.closeTime - last.openTime + 1;
+  const bars = [];
+  let openTime = last.closeTime + 1;
+  for (let k = 0; k < newer.length && bars.length < MAX_PENDING_SLOTS;) {
+    const closeTime = nextOpen(openTime, interval, dur) - 1;
+    const prices = [];
+    while (k < newer.length && newer[k].time <= closeTime) prices.push(newer[k++].price);
+    bars.push(prices.length
+      ? { openTime, closeTime, open: prices[0], high: Math.max(...prices), low: Math.min(...prices), close: prices.at(-1), pending: true }
+      : { openTime, closeTime, whitespace: true });
+    openTime = closeTime + 1;
+  }
+  return bars;
 }
 
 const PANES = {
@@ -85,7 +169,7 @@ const PANES = {
  * Candlestick chart with optional indicator panes underneath.
  * `buy[i]` true → candle i is painted gold.
  */
-export default function Chart({ candles, series, buy, enabled, sim, ranged = false, params = DEFAULT_PARAMS }) {
+export default function Chart({ candles, series, buy, enabled, sim, ranged = false, params = DEFAULT_PARAMS, ownTrades = [], interval = '1d' }) {
   // Only the trading window is displayed when a range is set. `first` is the offset
   // between displayed (logical) indices and the full-array indices the sim uses.
   const first = ranged ? Math.min(Math.max(0, sim.firstIndex), candles.length) : 0;
@@ -94,6 +178,11 @@ export default function Chart({ candles, series, buy, enabled, sim, ranged = fal
   const viewSeries = useMemo(
     () => Object.fromEntries(Object.entries(series).map(([k, v]) => [k, v.slice(first, last + 1)])),
     [series, first, last]
+  );
+  // Pending bars after the newest stored candle (only when the view reaches it) for trades newer than the store.
+  const tail = useMemo(
+    () => (last === candles.length - 1 ? pendingBars(view, ownTrades, interval) : []),
+    [view, last, candles.length, ownTrades, interval]
   );
 
   const containerRef = useRef(null);
@@ -178,20 +267,25 @@ export default function Chart({ candles, series, buy, enabled, sim, ranged = fal
     // setData() replaces same-time data on the only series in the chart, and the next
     // setData() with more series present then drops every point (blank chart).
     cs.setData([]);
-    cs.setData(view.map((c, i) => {
-      const bar = { time: toTime(c.openTime), open: c.open, high: c.high, low: c.low, close: c.close };
-      if (bought.has(first + i)) {
-        bar.color = COLORS.gold;
-        bar.wickColor = COLORS.gold;
-        bar.borderColor = COLORS.goldBorder;
-      } else if (skipped.has(first + i)) {
-        bar.borderColor = COLORS.gold;
-      }
-      return bar;
-    }));
-  }, [view, first, buy, sim]);
+    cs.setData([
+      ...view.map((c, i) => {
+        const bar = { time: toTime(c.openTime), open: c.open, high: c.high, low: c.low, close: c.close };
+        if (bought.has(first + i)) {
+          bar.color = COLORS.gold;
+          bar.wickColor = COLORS.gold;
+          bar.borderColor = COLORS.goldBorder;
+        } else if (skipped.has(first + i)) {
+          bar.borderColor = COLORS.gold;
+        }
+        return bar;
+      }),
+      ...tail.map((b) => (b.whitespace
+        ? { time: toTime(b.openTime) }
+        : { time: toTime(b.openTime), open: b.open, high: b.high, low: b.low, close: b.close, color: COLORS.pending, wickColor: COLORS.pending, borderColor: COLORS.pending })),
+    ]);
+  }, [view, tail, first, buy, sim]);
 
-  // Trade markers; price lines are redrawn for the new sim too.
+  // Trade markers (simulated + the user's real trades); price lines are redrawn for the new sim too.
   useEffect(() => {
     const cs = candleSeriesRef.current;
     if (!cs || !markersRef.current) return;
@@ -207,19 +301,20 @@ export default function Chart({ candles, series, buy, enabled, sim, ranged = fal
     for (const t of sim.openTrades) {
       markers.push({ time: toTime(candles[t.entryIndex].openTime), position: 'belowBar', shape: 'arrowUp', color: COLORS.gold, text: 'buy (open)' });
     }
+    if (view.length) markers.push(...ownTradeMarkers([...view, ...tail], ownTrades));   // only displayed candles (+ pending bars) carry data
     markers.sort((a, b) => a.time - b.time);
     markersRef.current.setMarkers(markers);
     drawPriceLines(true);
-  }, [candles, sim]);
+  }, [candles, view, tail, sim, ownTrades]);
 
   // Reset the view when the coin/timeframe/trade range changes: the whole trading
   // window when a range is set (only those candles are displayed), else the last 150 candles.
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart || view.length === 0) return;
-    const n = view.length;
+    const n = view.length + tail.length;
     chart.timeScale().setVisibleLogicalRange({ from: ranged ? 0 : Math.max(0, n - 150), to: n + 3 });
-  }, [view, ranged]);
+  }, [view, tail, ranged]);
 
   // Indicator panes follow the toggles.
   useEffect(() => {

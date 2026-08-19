@@ -10,6 +10,14 @@ npm run dev      # opens http://localhost:5173
 ```
 
 - **Coin / timeframe** — every `<market>_<interval>.csv` in the store (1h … 1M).
+  Coins you actually traded (ledger `../output/balance-bitvavo/trades.csv`, written by
+  `PrivateInfoImportBitvavo`) are listed first, most recent transaction on top, marked ★.
+- **★ my N trades** — your real buys (blue arrow below the bar) and sells (purple arrow above)
+  from that ledger on the chart, with the euro amount; several fills in one candle are summed
+  ("3 buys €2,990"). The checkbox next to the coin hides them (`mine=0` in the URL).
+  The store only holds closed candles, so a trade newer than the store (today's, or since the
+  last import) gets a **grey pending candle** in its own time slot, built from the trade
+  prices; it disappears once the real candle is imported.
 - **RSI / S-RSI / MACD** buttons — each independently toggles an indicator pane
   under the candles and its buy rule. Candles at a buy signal turn **gold**.
 - **Golden when** — `all fire` (every enabled indicator fires on the same
@@ -25,6 +33,14 @@ npm run dev      # opens http://localhost:5173
   (fees included), entry/stop/target lines mark the open trade, the footer sums
   realized P/L (plus the compounded % for reference) and *show log* lists every
   trade.
+- **Σ all coins** — runs the current configuration on every coin that has candles for the
+  timeframe. The coins are grouped (Stablecoins, Alpha, L1 / L2 & infra, DeFi, AI / DePIN,
+  Gaming / NFT, Meme, Dead, Other — `src/categories.js`, by base asset so BTC-EUR and BTC-USDC
+  share a group); a table at the top shows the totals per group and clicking a group (or its
+  checkbox) excludes/includes it (`all` / `none` for every group at once). The coin list and
+  its totals only cover the included groups. The select in a coin's row moves it to another
+  group; moves and excluded groups are remembered in the browser (localStorage), `reset`
+  undoes the moves.
 - The selection lives in the URL (`?market=BTC-EUR&interval=1d&ind=rsi,macd&mode=any&stop=8&target=25&stake=1000&fee=0.25&skip=1`),
   so a view can be bookmarked or reloaded.
 
@@ -43,6 +59,6 @@ Simulation rules live in `src/trades.js`; € result of a trade =
 warmup conventions); on the same 199-candle window it reproduces the values in
 the `data-bitvavo-local*.csv` reports exactly.
 
-The dev server exposes the CSVs as JSON via `/api/markets` and
-`/api/klines?market=…&interval=…` (see `vite.config.js`); no other backend is
+The dev server exposes the CSVs as JSON via `/api/markets`,
+`/api/klines?market=…&interval=…` and `/api/trades` (see `vite.config.js`); no other backend is
 needed. Refresh candles with `KlineHistoryImportBitvavo` and reload the page.

@@ -22,6 +22,7 @@ function fromUrl() {
     stake: numOr(q.get('stake'), DEFAULT_STAKE_EUR),
     feePct: numOr(q.get('fee'), DEFAULT_FEE * 100),
     skipWhileOpen: q.get('skip') !== '0',
+    showMine: q.get('mine') !== '0',
     from: dateOr(q.get('from')),
     to: dateOr(q.get('to')),
     params: {
@@ -58,6 +59,17 @@ function numOr(v, fallback) {
   return v !== null && Number.isFinite(n) && n > 0 ? n : fallback;
 }
 const initial = fromUrl();
+/** Marks the coins the user actually traded (in the ledger `output/balance-bitvavo/trades.csv`). */
+export const OWN_ICON = '★';
+
+/**
+ * Coins the user traded first — most recent transaction on top — then the rest alphabetically.
+ * `lastTradeAt`: market → ms of its latest own trade.
+ */
+export function orderMarkets(markets, lastTradeAt) {
+  return [...markets].sort((a, b) =>
+    (lastTradeAt.get(b.market) ?? -Infinity) - (lastTradeAt.get(a.market) ?? -Infinity) || a.market.localeCompare(b.market));
+}
 
 export default function App() {
   const [markets, setMarkets] = useState([]);
@@ -74,6 +86,8 @@ export default function App() {
   const [stake, setStake] = useState(initial.stake);
   const [feePct, setFeePct] = useState(initial.feePct);
   const [skipWhileOpen, setSkipWhileOpen] = useState(initial.skipWhileOpen);
+  const [ownTrades, setOwnTrades] = useState([]);       // the user's real trades, all markets, oldest first
+  const [showMine, setShowMine] = useState(initial.showMine);
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
   const [params, setParams] = useState(initial.params);   // indicator trigger levels
@@ -82,13 +96,21 @@ export default function App() {
 
   // Keep the URL in sync with the selection.
   useEffect(() => {
-    const q = new URLSearchParams({ market, interval, ind: enabled.join(','), mode, stop: stopPct, target: targetPct, stake, fee: feePct, skip: skipWhileOpen ? '1' : '0' });
+    const q = new URLSearchParams({ market, interval, ind: enabled.join(','), mode, stop: stopPct, target: targetPct, stake, fee: feePct, skip: skipWhileOpen ? '1' : '0', mine: showMine ? '1' : '0' });
     if (from) q.set('from', from);
     if (to) q.set('to', to);
     q.set('rsi', params.rsiMax);
     q.set('srsi', params.stochMax);
     window.history.replaceState(null, '', `?${q}`);
-  }, [market, interval, enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen, from, to, params]);
+  }, [market, interval, enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen, showMine, from, to, params]);
+
+  // The user's own trades from the ledger; missing ledger → [] (a failure here is not fatal for the charts).
+  useEffect(() => {
+    fetch('/api/trades')
+      .then((r) => r.json())
+      .then((list) => Array.isArray(list) && setOwnTrades(list))
+      .catch(() => {});
+  }, []);
 
   // Market list from the local candle store.
   useEffect(() => {
@@ -128,8 +150,16 @@ export default function App() {
   );
 
   const intervals = markets.find((m) => m.market === market)?.intervals ?? ['1d'];
-  const visibleMarkets = markets.filter((m) =>
+  // Coins the user traded go on top, most recent transaction first.
+  const lastTradeAt = useMemo(() => {
+    const map = new Map();
+    for (const t of ownTrades) map.set(t.market, Math.max(map.get(t.market) ?? 0, t.time));
+    return map;
+  }, [ownTrades]);
+  const orderedMarkets = useMemo(() => orderMarkets(markets, lastTradeAt), [markets, lastTradeAt]);
+  const visibleMarkets = orderedMarkets.filter((m) =>
     m.market.toLowerCase().includes(filter.trim().toLowerCase()));
+  const marketTrades = useMemo(() => ownTrades.filter((t) => t.market === market), [ownTrades, market]);
 
   const toggle = (id) =>
     setEnabled((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
@@ -163,9 +193,15 @@ export default function App() {
           />
           <select value={market} onChange={(e) => setMarket(e.target.value)}>
             {visibleMarkets.map((m) => (
-              <option key={m.market} value={m.market}>{m.market}</option>
+              <option key={m.market} value={m.market}>{lastTradeAt.has(m.market) ? `${OWN_ICON} ${m.market}` : m.market}</option>
             ))}
           </select>
+          {marketTrades.length > 0 && (
+            <label className="check own" title={`your ${marketTrades.length} real Bitvavo trade${marketTrades.length === 1 ? '' : 's'} in this coin (output/balance-bitvavo/trades.csv), last on ${isoDay(lastTradeAt.get(market))}. Blue arrow = buy, purple = sell; a grey candle is a trade newer than the candle store (built from the trade prices, no closed candle yet).`}>
+              <input type="checkbox" checked={showMine} onChange={(e) => setShowMine(e.target.checked)} />
+              {OWN_ICON} my {marketTrades.length} trade{marketTrades.length === 1 ? '' : 's'}
+            </label>
+          )}
         </div>
         <div className="group">
           <label>Timeframe</label>
@@ -211,7 +247,7 @@ export default function App() {
       </header>
 
       <main className="chart-wrap">
-        <Chart candles={candles} series={series} buy={buy} enabled={enabled} sim={sim} ranged={Boolean(from || to)} params={params} />
+        <Chart candles={candles} series={series} buy={buy} enabled={enabled} sim={sim} ranged={Boolean(from || to)} params={params} ownTrades={showMine ? marketTrades : []} interval={interval} />
       </main>
 
       {showTrades && <TradeLog candles={candles} sim={sim} />}

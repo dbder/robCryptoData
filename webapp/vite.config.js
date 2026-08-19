@@ -10,6 +10,12 @@ const KLINES_DIR = path.resolve(
   '../output/klines-bitvavo'
 );
 
+// Ledger of the user's own Bitvavo trades, written by PrivateInfoImportBitvavo (TradeCsvStore).
+const TRADES_CSV = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../output/balance-bitvavo/trades.csv'
+);
+
 const INTERVAL_ORDER = ['1h', '2h', '4h', '6h', '8h', '12h', '1d', '1W', '1M'];
 
 function json(res, status, body) {
@@ -77,6 +83,22 @@ function mount(middlewares) {
         }
         candles.sort((a, b) => a.openTime - b.openTime);
         json(res, 200, candles);
+      });
+
+  // The user's own trades (all markets), oldest first; [] when the ledger does not exist yet.
+  middlewares.use('/api/trades', (req, res) => {
+        if (!fs.existsSync(TRADES_CSV)) return json(res, 200, []);
+        const trades = [];
+        for (const line of fs.readFileSync(TRADES_CSV, 'utf8').split(/\r?\n/)) {
+          if (!line || line.startsWith('timestamp')) continue;
+          const [timestamp, market, id, side, amount, price, fee, feeCurrency] = line.split(',');
+          trades.push({
+            time: Number(timestamp), market, id, side,
+            amount: Number(amount), price: Number(price), fee: Number(fee), feeCurrency,
+          });
+        }
+        trades.sort((a, b) => a.time - b.time);
+        json(res, 200, trades);
       });
 }
 

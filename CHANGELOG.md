@@ -2,6 +2,17 @@
 
 Hier houden we bij wat er verandert in het project.
 
+## [17] - 2026-08-19
+
+### Nieuw
+- De "Σ all coins"-tabel in de webapp deelt de munten in groepen in: Stablecoins, Alpha (de grootste munten), L1 / L2 & infra, DeFi, AI / DePIN, Gaming / NFT, Meme, Dead en Other. Boven de muntenlijst staat per groep het aantal munten, trades, doel/stop en de gerealiseerde, open en totale winst; een klik op een groep (of zijn vinkje) sluit hem uit of neemt hem weer mee, met `all`/`none` voor alles tegelijk. De muntenlijst en de totaalregels tellen alleen de meegenomen groepen. Welke munt in welke groep zit staat in `webapp/src/categories.js` (op basisvaluta, dus BTC-EUR en BTC-USDC horen bij elkaar); met de keuzelijst in de rij van een munt verplaats je hem naar een andere groep — die keuze en de uitgesloten groepen onthoudt de browser (localStorage), `reset` zet de verplaatsingen terug.
+
+## [16] - 2026-08-17
+
+### Nieuw
+- De webapp toont je echte Bitvavo-transacties uit het grootboek `output/balance-bitvavo/trades.csv` op de grafiek: aankopen als blauwe pijl onder de candle, verkopen als paarse pijl erboven, met het eurobedrag; meerdere fills in dezelfde candle worden opgeteld ("3 buys €2,990"). Het vinkje "★ my N trades" naast de muntkeuze zet ze uit (`mine=0` in de URL). Omdat de candle-opslag alleen gesloten candles bevat, krijgt een transactie die nieuwer is dan de opslag (van vandaag, of van na de laatste import) een grijze "pending" candle op zijn eigen plek in de tijd, opgebouwd uit de transactieprijzen; die verdwijnt zodra de echte candle geïmporteerd is. De dev-server serveert het grootboek via `/api/trades`.
+- In de muntkeuze staan de munten waarin je gehandeld hebt bovenaan, op volgorde van laatste transactie (nieuwste eerst), gemarkeerd met ★; de overige munten volgen alfabetisch.
+
 ## [15] - 2026-08-15
 
 ### Nieuw
