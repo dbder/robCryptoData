@@ -9,6 +9,7 @@ import {
   createSeriesMarkers,
 } from 'lightweight-charts';
 import { DEFAULT_PARAMS } from './signals.js';
+import { sma } from './indicators.js';
 
 export const COLORS = {
   up: '#26a69a',
@@ -26,6 +27,7 @@ export const COLORS = {
   ownSell: '#c77dff',
   pending: '#8b98aa',   // synthetic candle for a trade newer than the candle store (no closed candle yet)
   bb: '#7e8ea3',        // Bollinger bands, muted so the candles stay readable
+  trend: '#c9b458',     // SMA trend filter line, darker than the gold buy candles
 };
 
 const toTime = (ms) => Math.floor(ms / 1000);
@@ -334,6 +336,15 @@ export default function Chart({ candles, series, buy, enabled, sim, ranged = fal
         band(viewSeries.bbLower, 0, 'BB lower'),
       );
     }
+    if (enabled.includes('sma')) {
+      // Computed here, not in computeAll, because the period is tunable; over the full
+      // series so candles before a trade-range window still warm it up, then sliced.
+      const ma = sma(series.closes, params.smaPeriod).slice(first, first + view.length);
+      const s = chart.addSeries(LineSeries,
+        { color: COLORS.trend, lineWidth: 2, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title: `SMA ${params.smaPeriod}` }, 0);
+      s.setData(pointsOf(view, ma));
+      paneSeriesRef.current.push(s);
+    }
     let pane = 1;
     for (const id of ['rsi', 'srsi', 'macd']) {
       if (!enabled.includes(id)) continue;
@@ -346,7 +357,7 @@ export default function Chart({ candles, series, buy, enabled, sim, ranged = fal
       for (const s of paneSeriesRef.current) chart.removeSeries(s);
       paneSeriesRef.current = [];
     };
-  }, [enabled, view, viewSeries, params]);
+  }, [enabled, view, viewSeries, params, series, first]);
 
   return <div className="chart" ref={containerRef} />;
 }

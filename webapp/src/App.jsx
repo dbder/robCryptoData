@@ -28,6 +28,7 @@ function fromUrl() {
     params: {
       rsiMax: numOr(q.get('rsi'), DEFAULT_PARAMS.rsiMax),
       stochMax: numOr(q.get('srsi'), DEFAULT_PARAMS.stochMax),
+      smaPeriod: numOr(q.get('sma'), DEFAULT_PARAMS.smaPeriod),
     },
   };
 }
@@ -101,6 +102,7 @@ export default function App() {
     if (to) q.set('to', to);
     q.set('rsi', params.rsiMax);
     q.set('srsi', params.stochMax);
+    q.set('sma', params.smaPeriod);
     window.history.replaceState(null, '', `?${q}`);
   }, [market, interval, enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen, showMine, from, to, params]);
 

@@ -1,10 +1,13 @@
 // Buy-signal rules per indicator. Each returns a boolean array aligned with the candles.
 
+import { sma } from './indicators.js';
+
 export const RSI_OVERSOLD = 30;     // default RSI trigger (0–100)
 export const STOCH_OVERSOLD = 0.2;  // default Stoch RSI trigger (0–1)
+export const TREND_SMA_PERIOD = 200;
 
 /** Tunable trigger levels; the defaults above apply when a key is missing. */
-export const DEFAULT_PARAMS = { rsiMax: RSI_OVERSOLD, stochMax: STOCH_OVERSOLD };
+export const DEFAULT_PARAMS = { rsiMax: RSI_OVERSOLD, stochMax: STOCH_OVERSOLD, smaPeriod: TREND_SMA_PERIOD };
 
 /** RSI: candle closes with RSI at or below the trigger line. */
 export function rsiBuy({ rsi }, { rsiMax = RSI_OVERSOLD } = {}) {
@@ -19,6 +22,16 @@ export function stochRsiBuy({ k, d }, { stochMax = STOCH_OVERSOLD } = {}) {
     if ([k0, d0, k1, d1].some(Number.isNaN)) return false;
     return k0 <= d0 && k1 > d1 && k1 <= stochMax;
   });
+}
+
+/**
+ * SMA trend filter: candle closes above its own SMA(period). Computed here from the
+ * closes (not in computeAll) because the period is tunable per view.
+ * Meant to be combined in "all fire" mode so oscillator dips only trigger in an uptrend.
+ */
+export function trendBuy({ closes }, { smaPeriod = TREND_SMA_PERIOD } = {}) {
+  const ma = sma(closes, smaPeriod);
+  return closes.map((c, i) => !Number.isNaN(ma[i]) && c > ma[i]);
 }
 
 /** Bollinger Bands: candle closes at or below the lower band (20, 2σ). */
@@ -51,6 +64,11 @@ export const INDICATORS = [
   },
   { id: 'macd', label: 'MACD', buy: macdBuy, hint: () => 'MACD line crosses above signal' },
   { id: 'bb', label: 'BB', buy: bollingerBuy, hint: () => 'close at or below the lower Bollinger band (20, 2σ); bands are drawn on the price chart' },
+  {
+    id: 'sma', label: 'SMA', buy: trendBuy,
+    hint: (p) => `trend filter: close above SMA(${p.smaPeriod}) — combine with "all fire" so dips only trigger in an uptrend`,
+    param: { key: 'smaPeriod', min: 20, max: 300, step: 10, format: (v) => `${v}`, label: 'SMA period' },
+  },
 ];
 function fmtRsi(v) { return `${Math.round(v)}`; }
 function fmtStoch(v) { return `${Math.round(v * 100)}%`; }
