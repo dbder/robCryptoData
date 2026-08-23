@@ -25,6 +25,7 @@ export const COLORS = {
   ownBuy: '#4fa3ff',    // the user's real buys / sells (ledger), distinct from the gold/green/red simulation
   ownSell: '#c77dff',
   pending: '#8b98aa',   // synthetic candle for a trade newer than the candle store (no closed candle yet)
+  bb: '#7e8ea3',        // Bollinger bands, muted so the candles stay readable
 };
 
 const toTime = (ms) => Math.floor(ms / 1000);
@@ -316,10 +317,23 @@ export default function Chart({ candles, series, buy, enabled, sim, ranged = fal
     chart.timeScale().setVisibleLogicalRange({ from: ranged ? 0 : Math.max(0, n - 150), to: n + 3 });
   }, [view, tail, ranged]);
 
-  // Indicator panes follow the toggles.
+  // Indicator panes follow the toggles. Bollinger bands overlay the price pane instead of getting their own.
   useEffect(() => {
     const chart = chartRef.current;
     if (!chart || view.length === 0) return;
+    if (enabled.includes('bb')) {
+      const band = (values, style, title) => {
+        const s = chart.addSeries(LineSeries,
+          { color: COLORS.bb, lineWidth: 1, lineStyle: style, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, title }, 0);
+        s.setData(pointsOf(view, values));
+        return s;
+      };
+      paneSeriesRef.current.push(
+        band(viewSeries.bbUpper, 0, 'BB upper'),
+        band(viewSeries.bbMiddle, 2, 'BB mid'),
+        band(viewSeries.bbLower, 0, 'BB lower'),
+      );
+    }
     let pane = 1;
     for (const id of ['rsi', 'srsi', 'macd']) {
       if (!enabled.includes(id)) continue;

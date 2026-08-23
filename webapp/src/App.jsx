@@ -6,7 +6,7 @@ import { computeAll } from './indicators.js';
 import { INDICATORS, DEFAULT_PARAMS, combineBuySignals } from './signals.js';
 import { simulateTrades, DEFAULT_STOP_LOSS, DEFAULT_TAKE_PROFIT, DEFAULT_STAKE_EUR, DEFAULT_FEE } from './trades.js';
 
-const EMPTY = { rsi: [], stochRsi: [], k: [], d: [], macd: [], signal: [], hist: [] };
+const EMPTY = { closes: [], rsi: [], stochRsi: [], k: [], d: [], macd: [], signal: [], hist: [], bbUpper: [], bbMiddle: [], bbLower: [] };
 const VALID_IND = INDICATORS.map((i) => i.id);
 
 // Initial state from the URL, so a view can be bookmarked / reloaded.

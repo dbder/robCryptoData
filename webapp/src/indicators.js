@@ -98,6 +98,22 @@ export function ema(values, period) {
   return result;
 }
 
+/** Bollinger Bands: SMA(period) ± mult population standard deviations. */
+export function bollingerBands(prices, period = 20, mult = 2) {
+  const middle = sma(prices, period);
+  const upper = nanArray(prices.length);
+  const lower = nanArray(prices.length);
+  for (let i = 0; i < prices.length; i++) {
+    if (Number.isNaN(middle[i])) continue;
+    let sq = 0;
+    for (let j = i - period + 1; j <= i; j++) sq += (prices[j] - middle[i]) ** 2;
+    const sd = Math.sqrt(sq / period);
+    upper[i] = middle[i] + mult * sd;
+    lower[i] = middle[i] - mult * sd;
+  }
+  return { middle, upper, lower };
+}
+
 /** MACD line = EMA(fast) − EMA(slow); NaN unless both are valid. */
 export function macdLine(prices, fast = 12, slow = 26) {
   const f = ema(prices, fast);
@@ -119,5 +135,6 @@ export function computeAll(candles) {
   const hist = macd.map((m, i) =>
     Number.isNaN(m) || Number.isNaN(signal[i]) ? NaN : m - signal[i]
   );
-  return { rsi: rsiS, stochRsi: stoch, k, d, macd, signal, hist };
+  const bb = bollingerBands(closes, 20, 2);
+  return { closes, rsi: rsiS, stochRsi: stoch, k, d, macd, signal, hist, bbUpper: bb.upper, bbMiddle: bb.middle, bbLower: bb.lower };
 }

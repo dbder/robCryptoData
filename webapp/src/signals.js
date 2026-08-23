@@ -21,6 +21,11 @@ export function stochRsiBuy({ k, d }, { stochMax = STOCH_OVERSOLD } = {}) {
   });
 }
 
+/** Bollinger Bands: candle closes at or below the lower band (20, 2σ). */
+export function bollingerBuy({ closes, bbLower }) {
+  return closes.map((c, i) => !Number.isNaN(bbLower[i]) && c <= bbLower[i]);
+}
+
 /** MACD: bullish crossover — the histogram flips from ≤ 0 to > 0. */
 export function macdBuy({ hist }) {
   return hist.map((h, i) => {
@@ -45,6 +50,7 @@ export const INDICATORS = [
     param: { key: 'stochMax', min: 0.05, max: 0.95, step: 0.01, format: fmtStoch, label: 'K at or below' },
   },
   { id: 'macd', label: 'MACD', buy: macdBuy, hint: () => 'MACD line crosses above signal' },
+  { id: 'bb', label: 'BB', buy: bollingerBuy, hint: () => 'close at or below the lower Bollinger band (20, 2σ); bands are drawn on the price chart' },
 ];
 function fmtRsi(v) { return `${Math.round(v)}`; }
 function fmtStoch(v) { return `${Math.round(v * 100)}%`; }
