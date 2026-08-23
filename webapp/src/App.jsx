@@ -26,6 +26,7 @@ function fromUrl() {
     feePct: numOr(q.get('fee'), DEFAULT_FEE * 100),
     skipWhileOpen: q.get('skip') !== '0',
     showMine: q.get('mine') !== '0',
+    showVolume: q.get('vol') === '1',
     from: dateOr(q.get('from')),
     to: dateOr(q.get('to')),
     params: {
@@ -96,6 +97,7 @@ export default function App() {
   const [skipWhileOpen, setSkipWhileOpen] = useState(initial.skipWhileOpen);
   const [ownTrades, setOwnTrades] = useState([]);       // the user's real trades, all markets, oldest first
   const [showMine, setShowMine] = useState(initial.showMine);
+  const [showVolume, setShowVolume] = useState(initial.showVolume);
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
   const [params, setParams] = useState(initial.params);   // indicator trigger levels
@@ -104,7 +106,7 @@ export default function App() {
 
   // Keep the URL in sync with the selection.
   useEffect(() => {
-    const q = new URLSearchParams({ market, interval, ind: enabled.join(','), mode, exit: exitMode, stop: stopPct, target: targetPct, stopatr: stopAtr, targetatr: targetAtr, stake, fee: feePct, skip: skipWhileOpen ? '1' : '0', mine: showMine ? '1' : '0' });
+    const q = new URLSearchParams({ market, interval, ind: enabled.join(','), mode, exit: exitMode, stop: stopPct, target: targetPct, stopatr: stopAtr, targetatr: targetAtr, stake, fee: feePct, skip: skipWhileOpen ? '1' : '0', mine: showMine ? '1' : '0', vol: showVolume ? '1' : '0' });
     if (from) q.set('from', from);
     if (to) q.set('to', to);
     q.set('rsi', params.rsiMax);
@@ -112,7 +114,7 @@ export default function App() {
     q.set('sma', params.smaPeriod);
     q.set('smadir', params.smaDir);
     window.history.replaceState(null, '', `?${q}`);
-  }, [market, interval, enabled, mode, exitMode, stopPct, targetPct, stopAtr, targetAtr, stake, feePct, skipWhileOpen, showMine, from, to, params]);
+  }, [market, interval, enabled, mode, exitMode, stopPct, targetPct, stopAtr, targetAtr, stake, feePct, skipWhileOpen, showMine, showVolume, from, to, params]);
 
   // The user's own trades from the ledger; missing ledger → [] (a failure here is not fatal for the charts).
   useEffect(() => {
@@ -244,6 +246,10 @@ export default function App() {
             ))}
           </HoverPicker>
         </div>
+        <label className="check" title="show the traded volume in a pane under the price chart — display only, it plays no part in the buy signals">
+          <input type="checkbox" checked={showVolume} onChange={(e) => setShowVolume(e.target.checked)} />
+          volume
+        </label>
         <div className="status">
           {loading && <span>loading…</span>}
           {!loading && last && (
@@ -257,7 +263,7 @@ export default function App() {
       </header>
 
       <main className="chart-wrap">
-        <Chart candles={candles} series={series} buy={buy} enabled={enabled} sim={sim} ranged={Boolean(from || to)} params={params} ownTrades={showMine ? marketTrades : []} interval={interval} />
+        <Chart candles={candles} series={series} buy={buy} enabled={enabled} sim={sim} ranged={Boolean(from || to)} params={params} ownTrades={showMine ? marketTrades : []} interval={interval} showVolume={showVolume} />
       </main>
 
       {showTrades && <TradeLog candles={candles} sim={sim} />}

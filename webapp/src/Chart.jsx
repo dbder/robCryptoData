@@ -147,6 +147,19 @@ const PANES = {
       return [k, d];
     },
   },
+  vol: {
+    title: 'Volume',
+    build(chart, pane, candles) {
+      const h = chart.addSeries(HistogramSeries,
+        { priceLineVisible: false, lastValueVisible: false, title: 'Vol', priceFormat: { type: 'volume' } }, pane);
+      h.setData(candles.map((c) => ({
+        time: toTime(c.openTime),
+        value: c.volume ?? 0,
+        color: (c.close >= c.open ? COLORS.up : COLORS.down) + '88',
+      })));
+      return [h];
+    },
+  },
   macd: {
     title: 'MACD (12,26,9)',
     build(chart, pane, candles, s) {
@@ -172,7 +185,7 @@ const PANES = {
  * Candlestick chart with optional indicator panes underneath.
  * `buy[i]` true → candle i is painted gold.
  */
-export default function Chart({ candles, series, buy, enabled, sim, ranged = false, params = DEFAULT_PARAMS, ownTrades = [], interval = '1d' }) {
+export default function Chart({ candles, series, buy, enabled, sim, ranged = false, params = DEFAULT_PARAMS, ownTrades = [], interval = '1d', showVolume = false }) {
   // Only the trading window is displayed when a range is set. `first` is the offset
   // between displayed (logical) indices and the full-array indices the sim uses.
   const first = ranged ? Math.min(Math.max(0, sim.firstIndex), candles.length) : 0;
@@ -346,8 +359,8 @@ export default function Chart({ candles, series, buy, enabled, sim, ranged = fal
       paneSeriesRef.current.push(s);
     }
     let pane = 1;
-    for (const id of ['rsi', 'srsi', 'macd']) {
-      if (!enabled.includes(id)) continue;
+    const wanted = [...['rsi', 'srsi', 'macd'].filter((id) => enabled.includes(id)), ...(showVolume ? ['vol'] : [])];
+    for (const id of wanted) {
       paneSeriesRef.current.push(...PANES[id].build(chart, pane, view, viewSeries, params));
       pane++;
     }
@@ -357,7 +370,7 @@ export default function Chart({ candles, series, buy, enabled, sim, ranged = fal
       for (const s of paneSeriesRef.current) chart.removeSeries(s);
       paneSeriesRef.current = [];
     };
-  }, [enabled, view, viewSeries, params, series, first]);
+  }, [enabled, view, viewSeries, params, series, first, showVolume]);
 
   return <div className="chart" ref={containerRef} />;
 }
