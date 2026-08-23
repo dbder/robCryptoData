@@ -16,7 +16,7 @@
 
 export const DEFAULT_STOP_LOSS = 0.08;    // sell if the candle closes 8% or more below entry
 export const DEFAULT_TAKE_PROFIT = 0.25;  // sell if the candle closes 25% or more above entry
-export const DEFAULT_STAKE_EUR = 1000;    // euros put into every trade
+export const DEFAULT_STAKE_EUR = 100;    // euros put into every trade
 export const DEFAULT_FEE = 0.0025;        // 0.25% per buy and per sell
 
 /** Euro result of a trade: `stake` in, fee on the buy, fee on the sell. */
