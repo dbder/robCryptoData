@@ -7,7 +7,7 @@ export const STOCH_OVERSOLD = 0.2;  // default Stoch RSI trigger (0–1)
 export const TREND_SMA_PERIOD = 200;
 
 /** Tunable trigger levels; the defaults above apply when a key is missing. */
-export const DEFAULT_PARAMS = { rsiMax: RSI_OVERSOLD, stochMax: STOCH_OVERSOLD, smaPeriod: TREND_SMA_PERIOD };
+export const DEFAULT_PARAMS = { rsiMax: RSI_OVERSOLD, stochMax: STOCH_OVERSOLD, smaPeriod: TREND_SMA_PERIOD, smaDir: 'under' };
 
 /** RSI: candle closes with RSI at or below the trigger line. */
 export function rsiBuy({ rsi }, { rsiMax = RSI_OVERSOLD } = {}) {
@@ -25,13 +25,13 @@ export function stochRsiBuy({ k, d }, { stochMax = STOCH_OVERSOLD } = {}) {
 }
 
 /**
- * SMA trend filter: candle closes above its own SMA(period). Computed here from the
- * closes (not in computeAll) because the period is tunable per view.
- * Meant to be combined in "all fire" mode so oscillator dips only trigger in an uptrend.
+ * SMA condition, direction per `smaDir`: 'under' — close below its own SMA(period),
+ * price at a discount; 'above' — close over it, a trend filter for "all fire" mode.
+ * Computed here from the closes (not in computeAll) because the period is tunable per view.
  */
-export function trendBuy({ closes }, { smaPeriod = TREND_SMA_PERIOD } = {}) {
+export function smaBuy({ closes }, { smaPeriod = TREND_SMA_PERIOD, smaDir = 'under' } = {}) {
   const ma = sma(closes, smaPeriod);
-  return closes.map((c, i) => !Number.isNaN(ma[i]) && c > ma[i]);
+  return closes.map((c, i) => !Number.isNaN(ma[i]) && (smaDir === 'under' ? c < ma[i] : c > ma[i]));
 }
 
 /** Bollinger Bands: candle closes at or below the lower band (20, 2σ). */
@@ -65,9 +65,19 @@ export const INDICATORS = [
   { id: 'macd', label: 'MACD', buy: macdBuy, hint: () => 'MACD line crosses above signal' },
   { id: 'bb', label: 'BB', buy: bollingerBuy, hint: () => 'close at or below the lower Bollinger band (20, 2σ); bands are drawn on the price chart' },
   {
-    id: 'sma', label: 'SMA', buy: trendBuy,
-    hint: (p) => `trend filter: close above SMA(${p.smaPeriod}) — combine with "all fire" so dips only trigger in an uptrend`,
+    id: 'sma', label: 'SMA', buy: smaBuy,
+    hint: (p) => (p.smaDir === 'above'
+      ? `close above SMA(${p.smaPeriod}) — trend filter: combine with "all fire" so dips only trigger in an uptrend`
+      : `close under SMA(${p.smaPeriod}) — price below its own average`),
+    level: (p) => `${p.smaDir === 'above' ? '>' : '<'}${p.smaPeriod}`,
     param: { key: 'smaPeriod', min: 20, max: 300, step: 10, format: (v) => `${v}`, label: 'SMA period' },
+    toggle: {
+      key: 'smaDir',
+      options: [
+        { value: 'under', title: 'buy the discount: close below the average' },
+        { value: 'above', title: 'trend filter: only buy while the trend is up' },
+      ],
+    },
   },
 ];
 function fmtRsi(v) { return `${Math.round(v)}`; }

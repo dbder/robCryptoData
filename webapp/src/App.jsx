@@ -4,7 +4,7 @@ import AllCoinsModal from './AllCoins.jsx';
 import DateField from './DateField.jsx';
 import { computeAll } from './indicators.js';
 import { INDICATORS, DEFAULT_PARAMS, combineBuySignals } from './signals.js';
-import { simulateTrades, DEFAULT_STOP_LOSS, DEFAULT_TAKE_PROFIT, DEFAULT_STAKE_EUR, DEFAULT_FEE } from './trades.js';
+import { simulateTrades, DEFAULT_STOP_LOSS, DEFAULT_TAKE_PROFIT, DEFAULT_STOP_ATR, DEFAULT_TARGET_ATR, ATR_PERIOD, DEFAULT_STAKE_EUR, DEFAULT_FEE } from './trades.js';
 
 const EMPTY = { closes: [], rsi: [], stochRsi: [], k: [], d: [], macd: [], signal: [], hist: [], bbUpper: [], bbMiddle: [], bbLower: [] };
 const VALID_IND = INDICATORS.map((i) => i.id);
@@ -17,8 +17,11 @@ function fromUrl() {
     interval: q.get('interval') || '1d',
     enabled: (q.get('ind') || '').split(',').filter((x) => VALID_IND.includes(x)),
     mode: q.get('mode') === 'any' ? 'any' : 'all',
+    exitMode: q.get('exit') === 'atr' ? 'atr' : 'pct',
     stopPct: numOr(q.get('stop'), DEFAULT_STOP_LOSS * 100),
     targetPct: numOr(q.get('target'), DEFAULT_TAKE_PROFIT * 100),
+    stopAtr: numOr(q.get('stopatr'), DEFAULT_STOP_ATR),
+    targetAtr: numOr(q.get('targetatr'), DEFAULT_TARGET_ATR),
     stake: numOr(q.get('stake'), DEFAULT_STAKE_EUR),
     feePct: numOr(q.get('fee'), DEFAULT_FEE * 100),
     skipWhileOpen: q.get('skip') !== '0',
@@ -29,6 +32,7 @@ function fromUrl() {
       rsiMax: numOr(q.get('rsi'), DEFAULT_PARAMS.rsiMax),
       stochMax: numOr(q.get('srsi'), DEFAULT_PARAMS.stochMax),
       smaPeriod: numOr(q.get('sma'), DEFAULT_PARAMS.smaPeriod),
+      smaDir: q.get('smadir') === 'above' ? 'above' : 'under',
     },
   };
 }
@@ -82,8 +86,11 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [enabled, setEnabled] = useState(initial.enabled);
   const [mode, setMode] = useState(initial.mode);
+  const [exitMode, setExitMode] = useState(initial.exitMode);
   const [stopPct, setStopPct] = useState(initial.stopPct);
   const [targetPct, setTargetPct] = useState(initial.targetPct);
+  const [stopAtr, setStopAtr] = useState(initial.stopAtr);
+  const [targetAtr, setTargetAtr] = useState(initial.targetAtr);
   const [stake, setStake] = useState(initial.stake);
   const [feePct, setFeePct] = useState(initial.feePct);
   const [skipWhileOpen, setSkipWhileOpen] = useState(initial.skipWhileOpen);
@@ -97,14 +104,15 @@ export default function App() {
 
   // Keep the URL in sync with the selection.
   useEffect(() => {
-    const q = new URLSearchParams({ market, interval, ind: enabled.join(','), mode, stop: stopPct, target: targetPct, stake, fee: feePct, skip: skipWhileOpen ? '1' : '0', mine: showMine ? '1' : '0' });
+    const q = new URLSearchParams({ market, interval, ind: enabled.join(','), mode, exit: exitMode, stop: stopPct, target: targetPct, stopatr: stopAtr, targetatr: targetAtr, stake, fee: feePct, skip: skipWhileOpen ? '1' : '0', mine: showMine ? '1' : '0' });
     if (from) q.set('from', from);
     if (to) q.set('to', to);
     q.set('rsi', params.rsiMax);
     q.set('srsi', params.stochMax);
     q.set('sma', params.smaPeriod);
+    q.set('smadir', params.smaDir);
     window.history.replaceState(null, '', `?${q}`);
-  }, [market, interval, enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen, showMine, from, to, params]);
+  }, [market, interval, enabled, mode, exitMode, stopPct, targetPct, stopAtr, targetAtr, stake, feePct, skipWhileOpen, showMine, from, to, params]);
 
   // The user's own trades from the ledger; missing ledger → [] (a failure here is not fatal for the charts).
   useEffect(() => {
@@ -147,8 +155,8 @@ export default function App() {
   const series = useMemo(() => (candles.length ? computeAll(candles) : EMPTY), [candles]);
   const buy = useMemo(() => combineBuySignals(series, enabled, mode, params), [series, enabled, mode, params]);
   const sim = useMemo(
-    () => simulateTrades(candles, buy, { stopLoss: stopPct / 100, takeProfit: targetPct / 100, stake, fee: feePct / 100, skipWhileOpen, from: fromMs(from), to: toMs(to) }),
-    [candles, buy, stopPct, targetPct, stake, feePct, skipWhileOpen, from, to]
+    () => simulateTrades(candles, buy, { exitMode, stopLoss: stopPct / 100, takeProfit: targetPct / 100, stopAtr, targetAtr, stake, fee: feePct / 100, skipWhileOpen, from: fromMs(from), to: toMs(to) }),
+    [candles, buy, exitMode, stopPct, targetPct, stopAtr, targetAtr, stake, feePct, skipWhileOpen, from, to]
   );
 
   const intervals = markets.find((m) => m.market === market)?.intervals ?? ['1d'];
@@ -169,8 +177,8 @@ export default function App() {
   const last = candles.at(-1);
   // Everything the simulation depends on besides the candles — handed to the all-coins modal.
   const config = useMemo(
-    () => ({ enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen, from: fromMs(from), to: toMs(to), params }),
-    [enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen, from, to, params]
+    () => ({ enabled, mode, exitMode, stopPct, targetPct, stopAtr, targetAtr, stake, feePct, skipWhileOpen, from: fromMs(from), to: toMs(to), params }),
+    [enabled, mode, exitMode, stopPct, targetPct, stopAtr, targetAtr, stake, feePct, skipWhileOpen, from, to, params]
   );
   const activePreset = RANGE_PRESETS.find((p) => (p.months === null ? !from && !to : from === monthsAgo(p.months) && !to))?.label;
   const inRange = sim.lastIndex - sim.firstIndex + 1;
@@ -281,14 +289,33 @@ export default function App() {
         </label>
         <div className="group">
           <label>Sell when close</label>
-          <span className="pct-input">
-            <input type="number" min="0.5" step="0.5" value={stopPct}
-              onChange={(e) => setStopPct(numOr(e.target.value, stopPct))} /> % down
-          </span>
-          <span className="pct-input">
-            <input type="number" min="0.5" step="0.5" value={targetPct}
-              onChange={(e) => setTargetPct(numOr(e.target.value, targetPct))} /> % up
-          </span>
+          <div className="segmented">
+            <button className={exitMode === 'pct' ? 'active' : ''} onClick={() => setExitMode('pct')} title="stop and target at a fixed % from entry">%</button>
+            <button className={exitMode === 'atr' ? 'active' : ''} onClick={() => setExitMode('atr')} title={`stop and target at a multiple of ATR(${ATR_PERIOD}) at entry: wide exits on volatile coins, tight on calm ones, so one config compares across coins`}>ATR</button>
+          </div>
+          {exitMode === 'pct' ? (
+            <>
+              <span className="pct-input">
+                <input type="number" min="0.5" step="0.5" value={stopPct}
+                  onChange={(e) => setStopPct(numOr(e.target.value, stopPct))} /> % down
+              </span>
+              <span className="pct-input">
+                <input type="number" min="0.5" step="0.5" value={targetPct}
+                  onChange={(e) => setTargetPct(numOr(e.target.value, targetPct))} /> % up
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="pct-input">
+                <input type="number" min="0.5" step="0.5" value={stopAtr}
+                  onChange={(e) => setStopAtr(numOr(e.target.value, stopAtr))} /> × ATR down
+              </span>
+              <span className="pct-input">
+                <input type="number" min="0.5" step="0.5" value={targetAtr}
+                  onChange={(e) => setTargetAtr(numOr(e.target.value, targetAtr))} /> × ATR up
+              </span>
+            </>
+          )}
         </div>
         <div className="group">
           <label>Per trade</label>
@@ -320,25 +347,43 @@ export default function App() {
   );
 }
 
-/** Indicator toggle; for indicators with a trigger level, hovering shows a slider to change it. */
+/**
+ * Indicator toggle; hovering shows the indicator's controls: a slider for its trigger
+ * level (`ind.param`) and/or a segmented switch (`ind.toggle`, e.g. the SMA direction).
+ * `ind.level` overrides the little value badge on the button (defaults to the slider value).
+ */
 function IndicatorButton({ ind, on, params, onToggle, onParam }) {
+  const level = ind.level?.(params) ?? (ind.param && ind.param.format(params[ind.param.key]));
   const button = (
     <button className={`indicator ${on ? 'on' : ''}`} title={ind.hint(params)} onClick={onToggle}>
-      {ind.label}{ind.param && <span className="level"> {ind.param.format(params[ind.param.key])}</span>}
+      {ind.label}{level && <span className="level"> {level}</span>}
     </button>
   );
-  if (!ind.param) return button;
-  const { key, min, max, step, format, label } = ind.param;
+  if (!ind.param && !ind.toggle) return button;
   return (
     <span className="hover-picker">
       {button}
       <span className="options">
         <span className="slider">
-          <span className="slider-label">{label} <strong>{format(params[key])}</strong></span>
-          {/* focus keeps the popover open while dragging even if the pointer strays; blur on release lets it close */}
-          <input type="range" min={min} max={max} step={step} value={params[key]}
-            onChange={(e) => onParam(key, Number(e.target.value))}
-            onPointerUp={(e) => e.target.blur()} />
+          {ind.toggle && (
+            <span className="segmented">
+              {ind.toggle.options.map((o) => (
+                <button key={o.value} className={params[ind.toggle.key] === o.value ? 'active' : ''}
+                  title={o.title} onClick={() => onParam(ind.toggle.key, o.value)}>
+                  {o.value}
+                </button>
+              ))}
+            </span>
+          )}
+          {ind.param && (
+            <>
+              <span className="slider-label">{ind.param.label} <strong>{ind.param.format(params[ind.param.key])}</strong></span>
+              {/* focus keeps the popover open while dragging even if the pointer strays; blur on release lets it close */}
+              <input type="range" min={ind.param.min} max={ind.param.max} step={ind.param.step} value={params[ind.param.key]}
+                onChange={(e) => onParam(ind.param.key, Number(e.target.value))}
+                onPointerUp={(e) => e.target.blur()} />
+            </>
+          )}
         </span>
       </span>
     </span>

@@ -89,10 +89,10 @@ export default function AllCoinsModal({ markets, interval, config, onClose }) {
 
   // One simulation per coin with the current configuration.
   const rows = useMemo(() => {
-    const { enabled, mode, stopPct, targetPct, stake, feePct, skipWhileOpen, from, to, params } = config;
+    const { enabled, mode, exitMode, stopPct, targetPct, stopAtr, targetAtr, stake, feePct, skipWhileOpen, from, to, params } = config;
     return Object.entries(loaded).map(([market, { candles, series }]) => {
       const buy = combineBuySignals(series, enabled, mode, params);
-      const sim = simulateTrades(candles, buy, { stopLoss: stopPct / 100, takeProfit: targetPct / 100, stake, fee: feePct / 100, skipWhileOpen, from, to });
+      const sim = simulateTrades(candles, buy, { exitMode, stopLoss: stopPct / 100, takeProfit: targetPct / 100, stopAtr, targetAtr, stake, fee: feePct / 100, skipWhileOpen, from, to });
       return {
         market, category: categoryOf(market, overrides),
         trades: sim.trades.length, wins: sim.wins, losses: sim.losses,

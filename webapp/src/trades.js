@@ -1,10 +1,15 @@
 // Simple long-only trade simulation on top of the buy signals.
 //
 // - Buy at the close of a candle with a buy signal, but only when no trade is open.
-// - Every later candle is judged at its close: when the close is at or below
-//   entry × (1 − stopLoss), or at or above entry × (1 + takeProfit), the trade is
-//   sold at that close. So a candle that closes −10% books −10%, one that closes
-//   +30% books +30% — not the threshold.
+// - Every later candle is judged at its close: when the close is at or below the
+//   trade's stop price, or at or above its target price, the trade is sold at that
+//   close. So a candle that closes −10% books −10%, one that closes +30% books
+//   +30% — not the threshold.
+// - The stop and target are fixed at entry, per `exitMode`:
+//   'pct' — entry × (1 ∓ stopLoss/takeProfit);
+//   'atr' — entry ∓ stopAtr/targetAtr × ATR(14) at the entry candle, so exits are
+//   wide on volatile coins and tight on calm ones. A signal during the ATR warmup
+//   (first 14 candles) cannot be sized and is ignored.
 // - A fee (default 0.25%) is paid on the buy and again on the sell.
 // - With `skipWhileOpen` (default) signals that arrive while a trade is open are
 //   ignored (reported as `skipped`); without it every signal opens its own trade,
@@ -14,8 +19,13 @@
 //   still there for the indicators to warm up on, candles after `to` are ignored,
 //   and trades still open at `to` are valued at the last candle inside the window.
 
+import { atr } from './indicators.js';
+
 export const DEFAULT_STOP_LOSS = 0.08;    // sell if the candle closes 8% or more below entry
 export const DEFAULT_TAKE_PROFIT = 0.25;  // sell if the candle closes 25% or more above entry
+export const DEFAULT_STOP_ATR = 2;        // 'atr' mode: stop this many ATRs below entry
+export const DEFAULT_TARGET_ATR = 4;      // 'atr' mode: target this many ATRs above entry
+export const ATR_PERIOD = 14;
 export const DEFAULT_STAKE_EUR = 100;    // euros put into every trade
 export const DEFAULT_FEE = 0.0025;        // 0.25% per buy and per sell
 
@@ -27,8 +37,11 @@ export function tradeResultEur(stake, entry, exit, fee) {
 }
 
 export function simulateTrades(candles, buy, {
+  exitMode = 'pct',
   stopLoss = DEFAULT_STOP_LOSS,
   takeProfit = DEFAULT_TAKE_PROFIT,
+  stopAtr = DEFAULT_STOP_ATR,
+  targetAtr = DEFAULT_TARGET_ATR,
   stake = DEFAULT_STAKE_EUR,
   fee = DEFAULT_FEE,
   skipWhileOpen = true,
@@ -40,21 +53,34 @@ export function simulateTrades(candles, buy, {
   let opens = [];   // open trades, oldest first
   const { firstIndex, lastIndex } = tradingWindow(candles, from, to);
 
+  const atrSeries = exitMode === 'atr'
+    ? atr(candles.map((c) => c.high), candles.map((c) => c.low), candles.map((c) => c.close), ATR_PERIOD)
+    : null;
+  /** Stop/target prices for a trade entered at candle `i`; null when the ATR is still warming up. */
+  const exitPrices = (entry, i) => {
+    if (!atrSeries) return { stopPrice: entry * (1 - stopLoss), targetPrice: entry * (1 + takeProfit) };
+    const a = atrSeries[i];
+    if (Number.isNaN(a)) return null;
+    return { stopPrice: entry - stopAtr * a, targetPrice: entry + targetAtr * a };
+  };
+
   for (let i = firstIndex; i <= lastIndex; i++) {
     const c = candles[i];
 
     opens = opens.filter((open) => {
-      const move = c.close / open.entry - 1;
-      const reason = move <= -stopLoss ? 'stop' : move >= takeProfit ? 'target' : null;
+      const reason = c.close <= open.stopPrice ? 'stop' : c.close >= open.targetPrice ? 'target' : null;
       if (!reason) return true;
+      const move = c.close / open.entry - 1;
       const eur = tradeResultEur(stake, open.entry, c.close, fee);
       trades.push({ ...open, exitIndex: i, exit: c.close, reason, move, eur, pct: eur / stake });
       return false;
     });
 
     if (buy[i]) {
+      const exits = exitPrices(c.close, i);
+      if (!exits) continue;
       if (skipWhileOpen && opens.length > 0) skipped.push(i);
-      else opens.push({ entryIndex: i, entry: c.close, stopPrice: c.close * (1 - stopLoss), targetPrice: c.close * (1 + takeProfit) });
+      else opens.push({ entryIndex: i, entry: c.close, ...exits });
     }
   }
   trades.sort((a, b) => a.entryIndex - b.entryIndex || a.exitIndex - b.exitIndex);

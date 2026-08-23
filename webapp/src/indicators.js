@@ -98,6 +98,26 @@ export function ema(values, period) {
   return result;
 }
 
+/** Average True Range, Wilder smoothing (port of the Java atr). First value at index `period`. */
+export function atr(highs, lows, closes, period = 14) {
+  const result = nanArray(closes.length);
+  if (closes.length <= period) return result;
+  const tr = (i) => Math.max(
+    highs[i] - lows[i],
+    Math.abs(highs[i] - closes[i - 1]),
+    Math.abs(lows[i] - closes[i - 1]),
+  );
+  let sum = 0;
+  for (let i = 1; i <= period; i++) sum += tr(i);
+  let a = sum / period;
+  result[period] = a;
+  for (let i = period + 1; i < closes.length; i++) {
+    a = (a * (period - 1) + tr(i)) / period;
+    result[i] = a;
+  }
+  return result;
+}
+
 /** Bollinger Bands: SMA(period) ± mult population standard deviations. */
 export function bollingerBands(prices, period = 20, mult = 2) {
   const middle = sma(prices, period);
